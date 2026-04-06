@@ -43,7 +43,7 @@ _CFG    = os.path.join(os.path.expanduser("~"), ".agrupadorpdf.json")
 
 # URL do Gist com a versao mais recente.
 # O app consulta essa URL na inicializacao para avisar sobre updates.
-UPDATE_CHECK_URL = "https://gist.githubusercontent.com/Bmarkss/placeholder/raw/agrupador_pdf_version.json"
+UPDATE_CHECK_URL = "https://gist.githubusercontent.com/Bmarkss/0f1d2bf6af3b4fe583f1f7ef22b6beed/raw/agrupador_pdf_version.json"
 
 
 _BaseApp = _TkDnD.Tk if _DND_OK else tk.Tk
