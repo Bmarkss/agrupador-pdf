@@ -17,6 +17,7 @@ from .config import (
     RE_DOC_NUMBER,
 )
 from .models import DocInfo, normalize, normalize_value, simhash
+from .scorer import cnpj_from_nfe_key
 
 try:
     from pypdf import PdfReader
@@ -352,7 +353,13 @@ def collect_all(
                            or extract_installment(doc.content[:2000]))
 
         doc.nf_keys      = extract_nf_keys(doc.content)
-        doc.cnpj_emitter = extract_cnpj(doc.content[:4000])
+        # CNPJ: primeiro tenta extrair da chave NF-e (100% confiável),
+        # depois faz fallback para regex no conteúdo
+        _cnpj_from_key = next(
+            (cnpj_from_nfe_key(k) for k in doc.nf_keys if cnpj_from_nfe_key(k)),
+            None
+        )
+        doc.cnpj_emitter = _cnpj_from_key or extract_cnpj(doc.content[:4000])
         doc.due_dates    = extract_due_dates(doc.content)
         doc.doc_numbers  = extract_doc_numbers(doc.stem, doc.content)
         doc.period       = extract_period(stem_clean, doc.content)
