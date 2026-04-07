@@ -257,18 +257,12 @@ def add_training_example(text: str, correct_label: str) -> bool:
             except Exception:
                 pass
 
-        # Salva novo exemplo
+        # Salva novo exemplo (extra_path já foi lido acima; atualiza com o novo)
+        existing_extra = list(examples[len(_SEED_EXAMPLES):])  # apenas os extras já salvos
+        existing_extra.append((text[:2000], correct_label))
         try:
             with open(extra_path, "wb") as f:
-                existing = []
-                if os.path.exists(extra_path):
-                    try:
-                        with open(extra_path, "rb") as fr:
-                            existing = pickle.load(fr)
-                    except Exception:
-                        pass
-                existing.append((text[:2000], correct_label))
-                pickle.dump(existing, f)
+                pickle.dump(existing_extra, f)
         except Exception:
             pass
 

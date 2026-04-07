@@ -193,7 +193,7 @@ def confidence_score(
         possible += _W["value"]
         if val_a == val_b or (all_a & all_b):
             earned += _W["value"]
-            details["value"] = f"✔ valor R${doc_a.value_raw or val_a}"
+            details["value"] = f"✔ valor {doc_a.value_raw or val_a}"
         else:
             details["value"] = f"⚠ valores distintos ({doc_a.value_raw} vs {doc_b.value_raw})"
 
