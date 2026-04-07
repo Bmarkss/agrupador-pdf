@@ -17,6 +17,8 @@ from .config import (
     RE_DOC_NUMBER,
 )
 from .models import DocInfo, normalize, normalize_value, simhash
+from .scorer     import cnpj_from_nfe_key
+from .classifier import classify, warmup as _warmup_classifier
 
 try:
     from pypdf import PdfReader
@@ -352,7 +354,13 @@ def collect_all(
                            or extract_installment(doc.content[:2000]))
 
         doc.nf_keys      = extract_nf_keys(doc.content)
-        doc.cnpj_emitter = extract_cnpj(doc.content[:4000])
+        # CNPJ: primeiro tenta extrair da chave NF-e (100% confiável),
+        # depois faz fallback para regex no conteúdo
+        _cnpj_from_key = next(
+            (cnpj_from_nfe_key(k) for k in doc.nf_keys if cnpj_from_nfe_key(k)),
+            None
+        )
+        doc.cnpj_emitter = _cnpj_from_key or extract_cnpj(doc.content[:4000])
         doc.due_dates    = extract_due_dates(doc.content)
         doc.doc_numbers  = extract_doc_numbers(doc.stem, doc.content)
         doc.period       = extract_period(stem_clean, doc.content)
@@ -364,10 +372,14 @@ def collect_all(
         # Pagamentos diretos (PIX/TED/transferencia) nao precisam de boleto
         doc.is_direct    = doc.content_type in ("pix", "ted", "transferencia")
 
+        # v1.6.0 — classificação híbrida: regras + ML
+        # Prioridade: sufixo -C no nome > segmento do nome > ML sobre conteúdo
+        _ml_type, _ml_conf = classify(doc.content[:3000]) if doc.content else ("desconhecido", 0.0)
         doc.doc_type = (
             ("comprovante" if doc.suffix_c else None)
             or classify_segment(doc.type_segment)
             or classify_segment(doc.stem)
+            or (_ml_type if _ml_type != "desconhecido" and _ml_conf >= 0.50 else None)
             or classify_by_content(doc.content)
         )
 

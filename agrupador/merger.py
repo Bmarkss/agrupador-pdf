@@ -9,10 +9,11 @@ v1.4.0 — Smart ✔/⚠:
 
 import os, re, io
 from pypdf import PdfWriter, PdfReader
-from .config import ORDER_MERGE
-from .models import DocInfo
+from .config  import ORDER_MERGE
+from .models  import DocInfo
 from .extractor import collect_all
-from .grouper  import build_groups
+from .grouper   import build_groups
+from .scorer    import group_confidence, score_to_symbol, score_to_label, SCORE_GREEN, SCORE_YELLOW
 
 
 def _build_output_name(group_id, docs):
@@ -115,29 +116,24 @@ def merge_group(group_id: str, docs: list[DocInfo], output_folder: str) -> str:
     else:
         size_tag = ""
 
-    # ── Smart ✔/⚠ ────────────────────────────────────────────────────────────
-    has_comp = "comprovante" in used_types
-    has_nota = "nota"        in used_types
-    has_bole = "boleto"      in used_types
-    extra_s  = f" +{len(untyped)} sem tipo" if untyped else ""
+    # ── Score de confiança calibrado (v1.5.0) ────────────────────────────────
+    extra_s = f" +{len(untyped)} sem tipo" if untyped else ""
 
     if errors:
         return f"\u26a0 {group_id}: erros em {'; '.join(errors)}"
 
-    # ✔ completo: comprovante + pelo menos outro tipo
-    if has_comp and (has_nota or has_bole):
-        return f"\u2714 {group_id}{extra_s}{size_tag}"
+    score, det = group_confidence(docs)
+    sym   = score_to_symbol(score)
+    label = score_to_label(score)
 
-    # ⚠ falta comprovante — suspeito (boleto/NF sem evidencia de pagamento)
-    if not has_comp:
-        missing = [t.upper() for t in ORDER_MERGE if t not in used_types]
-        return f"\u26a0 {group_id}: faltou {', '.join(missing)}{extra_s}{size_tag}"
+    # Contexto adicional: tipos presentes
+    tipos_str = "+".join(t[0].upper() for t in used_types) if used_types else "?"
 
-    # ⚠ so tem comprovante (nenhum doc fiscal)
-    return f"\u26a0 {group_id}: so comprovante, faltou BOLETO ou NOTA{extra_s}{size_tag}"
+    return f"{sym} {group_id}  [{label}] ({tipos_str}){extra_s}{size_tag}"
 
 
 def scan_folder(folder, log_callback=None, cancel_flag=None):
+    from .classifier import warmup as _wc; _wc()  # pre-carrega modelo ML
     if log_callback: log_callback("  -- Fase 1: lendo e extraindo dados...")
     docs = collect_all(folder, log_callback, cancel_flag)
     if cancel_flag and cancel_flag(): return {}, []
