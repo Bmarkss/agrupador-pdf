@@ -123,11 +123,22 @@ def merge_group(group_id: str, docs: list[DocInfo], output_folder: str) -> str:
         return f"\u26a0 {group_id}: erros em {'; '.join(errors)}"
 
     score, det = group_confidence(docs)
+
+    # GNRE é auto-suficiente: a guia já é o comprovante
+    # Comprovante + GNRE também é grupo completo
+    if all(d.doc_type in ("gnre", "comprovante") for d in docs) and        any(d.doc_type == "gnre" for d in docs):
+        score = max(score, 0.90)
+
     sym   = score_to_symbol(score)
     label = score_to_label(score)
 
     # Contexto adicional: tipos presentes
     tipos_str = "+".join(t[0].upper() for t in used_types) if used_types else "?"
+
+    try:
+        record_grouping(group_id, list(set(used_types)), score, det)
+    except Exception:
+        pass
 
     return f"{sym} {group_id}  [{label}] ({tipos_str}){extra_s}{size_tag}"
 

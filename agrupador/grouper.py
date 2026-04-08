@@ -37,6 +37,8 @@ def _dup_boleto_diff_values(gdocs):
     return len({d.value_digits for d in boletos if d.value_digits}) > 1
 
 def _absorb(groups, gid_from, gid_into, log_cb, reason):
+    if gid_from not in groups or gid_into not in groups:
+        return   # já foi absorvido em iteração anterior
     if log_cb:
         log_cb(f"    -> merge ({reason}): '{gid_from}' -> '{gid_into}'")
     for d in groups[gid_from]:
