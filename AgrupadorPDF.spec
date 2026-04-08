@@ -1,6 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 #
-# AgrupadorPDF.spec  -  PyInstaller build spec  (v1.4.0)
+# AgrupadorPDF.spec  -  PyInstaller build spec  (v1.5.0)
 #
 
 import sys
@@ -37,9 +37,25 @@ hiddenimports = (
         "agrupador.matcher",
         "agrupador.grouper",
         "agrupador.merger",
+        "agrupador.scorer",
+        "agrupador.classifier",
+        "agrupador.cnpj_cache",
+        "agrupador.feedback_store",
+        "agrupador.graph_resolver",
         "agrupador.ui",
         "agrupador.ui.app",
         "agrupador.ui.widgets",
+        "sklearn",
+        "sklearn.feature_extraction.text",
+        "sklearn.svm",
+        "sklearn.pipeline",
+        "sklearn.calibration",
+        "rapidfuzz",
+        "rapidfuzz.fuzz",
+        "networkx",
+        "sqlite3",
+        "pickle",
+        "math",
     ]
 )
 

@@ -1,10 +1,10 @@
 ; ============================================================
 ;  AgrupadorPDF_Installer.iss  -  Inno Setup 6.x
-;  Gera: AgrupadorPDF_v1.4.0_Installer.exe
+;  Gera: AgrupadorPDF_v1.5.0_Installer.exe
 ; ============================================================
 
 #define AppName      "AgrupadorPDF"
-#define AppVersion   "1.4.0"
+#define AppVersion   "1.5.0"
 #define AppPublisher "Brian Marques"
 #define AppExeName   "AgrupadorPDF.exe"
 #define AppDocName   "AgrupadorPDF_Documentacao.docx"
