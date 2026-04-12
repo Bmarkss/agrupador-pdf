@@ -1,6 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 #
-# AgrupadorPDF.spec  -  PyInstaller build spec  (v1.6.0)
+# AgrupadorPDF.spec  -  PyInstaller build spec  (v1.7.0)
 #
 
 import sys

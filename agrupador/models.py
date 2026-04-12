@@ -195,15 +195,21 @@ class DocInfo:
         # avancados v1.2.0
         "value_sec_raw","value_sec_digits",
         "all_value_digits","installment",
-        "nf_keys","cnpj_emitter","cnpj_sacado","boleto_id","due_dates","doc_numbers","fingerprint",
+        "nf_keys","cnpj_emitter","cnpj_sacado","boleto_id","pix_key","bank_code","due_dates","doc_numbers","fingerprint",
         # novos v1.4.0
         "simhash","content_type","is_direct","dup_of",
     )
 
     def __init__(self, path: str):
         self.path  = path
-        self.fname = os.path.basename(path)
+        # Normaliza #U00XX (URL-encoded unicode de filenames) → caractere real
+        _bname = os.path.basename(path)
+        import re as _re
+        self.fname = _re.sub(r'#[Uu]([0-9a-fA-F]{4})',
+                             lambda x: chr(int(x.group(1), 16)), _bname)
         raw = Path(path).stem
+        # Normaliza #U00XX do stem também (mesmo fix do fname)
+        raw = _re.sub(r'#[Uu]([0-9a-fA-F]{4})', lambda x: chr(int(x.group(1), 16)), raw)
         raw = re.sub(r" -([A-Za-z\xc0-\xff])", r" - \1", raw)
         raw = re.sub(r"(\s*-\s*C)\s*-\s*", r"\1 - ", raw, flags=re.IGNORECASE)
         self.stem = raw
@@ -220,6 +226,8 @@ class DocInfo:
         self.cnpj_emitter=None
         self.cnpj_sacado=None
         self.boleto_id=None
+        self.pix_key=None
+        self.bank_code=None
         self.due_dates: list[str]=[]
         self.doc_numbers: set[str]=set()
         self.fingerprint: set[str]=set()

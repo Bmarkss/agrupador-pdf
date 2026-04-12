@@ -8,7 +8,7 @@ v1.4.0:
   - extract_group_id() remove tokens de VENCIMENTO do gid
 """
 
-import os, re
+import os, re, warnings
 from .config import (
     OCR_AVAILABLE, _POPPLER, pytesseract, convert_from_path,
     MIN_TEXT_CHARS, SEG_MAP, ENTITY_STOP,
@@ -40,30 +40,34 @@ except ImportError:
 def extract_text(path: str) -> tuple[str, int]:
     """
     Extrai texto de um PDF.
-    Tenta pdfplumber primeiro (melhor para docs fiscais com tabelas),
-    faz fallback para pypdf, e por último OCR se disponível.
+    Estratégia otimizada para performance:
+    - pypdf como extrator principal (rápido, ~10ms/pág)
+    - pdfplumber como fallback quando pypdf retorna pouco texto
+    - OCR como último recurso
+    pdfplumber é chamado separadamente em extract_boleto_fields apenas para
+    documentos classificados como boleto, onde as tabelas estruturadas importam.
     """
     text = ""; pages = 1
 
-    # Tentativa 1: pdfplumber (primary — melhor precisão em boletos/DANFEs)
-    if _PLUMBER_OK:
-        try:
-            with _pdfplumber.open(path) as pdf:
-                pages = len(pdf.pages)
-                parts = []
-                for p in pdf.pages:
-                    t = p.extract_text(x_tolerance=3, y_tolerance=3) or ""
-                    parts.append(t)
-                text = " ".join(parts).strip()
-        except Exception:
-            text = ""
-
-    # Tentativa 2: pypdf fallback
-    if len(text) < MIN_TEXT_CHARS and _PdfReader:
+    # Tentativa 1: pypdf (rápido — ~10ms/página)
+    if _PdfReader:
         try:
             reader = _PdfReader(path)
             pages  = len(reader.pages)
             text   = " ".join(p.extract_text() or "" for p in reader.pages).strip()
+        except Exception:
+            pass
+
+    # Tentativa 2: pdfplumber como fallback se pypdf extraiu pouco
+    if len(text) < MIN_TEXT_CHARS and _PLUMBER_OK:
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+            with _pdfplumber.open(path) as pdf:
+                pages = len(pdf.pages)
+                parts = [p.extract_text(x_tolerance=3, y_tolerance=3) or ""
+                         for p in pdf.pages]
+                text = " ".join(parts).strip()
         except Exception:
             pass
 
@@ -88,6 +92,72 @@ _RE_NOSSO_NUM = re.compile(
     r'nosso\s+n[uú]mero[\s\S]{0,40}?(\d[\d\/\-\.]{4,20}\d)', re.I
 )
 
+
+# ── Dicionário estático de bancos brasileiros (top 60 por uso) ────────────────
+# Fonte: Bacen / BrasilAPI /banks/v1 — atualizado periodicamente
+_BANKS: dict[str, str] = {
+    "001": "Banco do Brasil", "033": "Santander", "041": "Banrisul",
+    "070": "BRB", "077": "Inter", "084": "CC Uniprime", "085": "Ailos",
+    "097": "Crehnor", "099": "Uniprime Central", "104": "Caixa Econômica",
+    "133": "Cresol", "136": "Unicred", "197": "Stone", "208": "BTG Pactual",
+    "212": "Banco Original", "218": "BS2", "237": "Bradesco",
+    "260": "Nubank", "290": "PagSeguro", "301": "BPP",
+    "318": "BMG", "336": "C6 Bank", "341": "Itaú", "348": "XP",
+    "364": "Gerencianet/Efí", "380": "PicPay", "389": "Mercantil",
+    "394": "Banco Finaxis", "403": "Cora", "422": "Safra",
+    "461": "Asaas", "477": "Citibank", "505": "Credit Suisse",
+    "637": "Sofisa", "655": "Votorantim", "707": "Daycoval",
+    "735": "Neon", "739": "BCN", "741": "Ribeirão Preto",
+    "745": "Citibank N.A.", "748": "Sicredi", "752": "BNB",
+    "756": "Sicoob", "757": "BSES", "77":  "Inter",
+}
+
+_RE_PIX_KEY  = re.compile(
+    r'chave(?:\s+pix)?[\s:]+([\w@.+\-]{5,77})', re.I
+)
+_RE_PIX_CNPJ = re.compile(r'\d{2}[.\s]?\d{3}[.\s]?\d{3}[/\s]?\d{4}[-\s]?\d{2}')
+_RE_PIX_CPF  = re.compile(r'(?<!\d)\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2}(?!\d)')
+_RE_LINHA_DIG = re.compile(r'(\d{3})(\d)(\d{5})\.\d{5}\s+(\d{5})\.\d{6}\s+(\d{5})')
+
+
+def extract_pix_key(content: str) -> str | None:
+    """
+    Extrai a chave PIX do recebedor de um comprovante.
+    Retorna CNPJ/CPF limpo (só dígitos) se a chave for CNPJ ou CPF,
+    ou a chave bruta (UUID, email, telefone) nos demais casos.
+    """
+    if not content: return None
+    m = _RE_PIX_KEY.search(content)
+    if not m: return None
+    raw = m.group(1).strip()
+    # Se for CNPJ (14 dígitos)
+    cnpj = _RE_PIX_CNPJ.search(raw)
+    if cnpj:
+        return re.sub(r'\D', '', cnpj.group())[:14]
+    # Se for CPF (11 dígitos)
+    cpf = _RE_PIX_CPF.search(raw)
+    if cpf:
+        return re.sub(r'\D', '', cpf.group())[:11]
+    # UUID, e-mail, telefone — retorna bruto truncado
+    return raw[:50]
+
+
+def extract_bank_code(content: str) -> str | None:
+    """
+    Extrai o código do banco (3 dígitos) da linha digitável de um boleto.
+    Os primeiros 3 dígitos da linha digitável são o código do banco emissor.
+    """
+    m = _RE_LINHA_DIG.search(content)
+    if m:
+        return m.group(1)   # primeiros 3 dígitos
+    return None
+
+
+def bank_name(code: str | None) -> str | None:
+    """Retorna o nome do banco pelo código de 3 dígitos."""
+    if not code: return None
+    return _BANKS.get(code.lstrip("0").zfill(3)) or _BANKS.get(code.lstrip("0"))
+
 def extract_boleto_fields(path: str) -> dict:
     """
     Usa pdfplumber para extrair campos estruturados de boletos bancários.
@@ -98,6 +168,8 @@ def extract_boleto_fields(path: str) -> dict:
         return {}
     result = {}
     try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
         with _pdfplumber.open(path) as pdf:
             for page in pdf.pages:
                 for table in (page.extract_tables() or []):
@@ -127,7 +199,15 @@ def extract_boleto_fields(path: str) -> dict:
                             if "vencimento" in cell_l:
                                 dates = RE_DUE_DATE.findall(cell)
                                 if dates:
-                                    result['vencimento'] = dates[0]
+                                    d = dates[0]
+                                    # RE_DUE_DATE retorna tuple de grupos — converte para string DD/MM/YYYY
+                                    if isinstance(d, tuple):
+                                        parts = [p for p in d if p]
+                                        if len(parts) >= 3:
+                                            d = f"{parts[0]}/{parts[1]}/{parts[2]}"
+                                        else:
+                                            d = "/".join(parts)
+                                    result['vencimento'] = d
                             # Valor do documento
                             if "valor" in cell_l and "documento" in cell_l:
                                 idx = next((i for i,c in enumerate(cells)
@@ -298,6 +378,16 @@ def extract_type_segment(stem: str) -> str | None:
     return None
 
 
+
+def _fix_url_unicode(s: str) -> str:
+    """Converte #U00XX (URL-encoded unicode em filenames) para caractere real.
+    Ex: FUNCION#U00c1RIOS → FUNCIONÁRIOS"""
+    return re.sub(
+        r'#[Uu]([0-9a-fA-F]{4})',
+        lambda m: chr(int(m.group(1), 16)),
+        s
+    )
+
 def extract_group_id(stem: str) -> str | None:
     """
     Extrai a ENTIDADE do nome do arquivo.
@@ -419,10 +509,12 @@ def collect_all(
     total = len(files)
     docs: list[DocInfo] = []
 
-    for idx, fname in enumerate(files, 1):
+    for idx, (raw_fname, fname) in enumerate(
+        [(f, _fix_url_unicode(f)) for f in files], 1
+    ):
         if cancel_flag and cancel_flag():
             return []
-        path = os.path.join(folder, fname)
+        path = os.path.join(folder, raw_fname)
         if log_callback:
             log_callback(f"  [{idx}/{total}] Lendo: {fname[:60]}")
 
@@ -459,21 +551,6 @@ def collect_all(
         doc.period       = extract_period(stem_clean, doc.content)
         doc.fingerprint  = extract_fingerprint(doc.stem, doc.content)
 
-        # v1.6.0 — extração estruturada de boleto via pdfplumber
-        if doc.doc_type in ("boleto", None) or "boleto" in (doc.type_segment or "").lower():
-            _bf = extract_boleto_fields(path)
-            if _bf:
-                if not doc.cnpj_emitter and _bf.get("cnpj_cedente"):
-                    doc.cnpj_emitter = _bf["cnpj_cedente"]
-                doc.cnpj_sacado = _bf.get("cnpj_sacado")
-                doc.boleto_id   = _bf.get("nosso_numero")
-                # Se extraiu valor do boleto e não tinha, usa
-                if not doc.value_digits and _bf.get("valor_doc"):
-                    doc.value_digits = _bf["valor_doc"]
-                # Se extraiu vencimento e não tinha período, usa
-                if not doc.period and _bf.get("vencimento"):
-                    doc.period = _bf["vencimento"]
-
         # v1.4.0 — SimHash e content_type
         doc.simhash      = simhash(doc.content[:8000]) if doc.content else 0
         doc.content_type = detect_content_type(doc.content)
@@ -490,6 +567,26 @@ def collect_all(
             or (_ml_type if _ml_type != "desconhecido" and _ml_conf >= 0.50 else None)
             or classify_by_content(doc.content)
         )
+        # v1.7.0 — PIX key e bank code (APÓS classificação — doc_type já definido)
+        if doc.doc_type == "comprovante" and doc.content:
+            doc.pix_key = extract_pix_key(doc.content)
+        if doc.doc_type == "boleto":
+            doc.bank_code = extract_bank_code(doc.content)
+            # Extração estruturada via pdfplumber (só boletos, após classificar)
+            import warnings as _w
+            with _w.catch_warnings():
+                _w.simplefilter("ignore")
+                _bf = extract_boleto_fields(path)
+            if _bf:
+                if not doc.cnpj_emitter and _bf.get("cnpj_cedente"):
+                    doc.cnpj_emitter = _bf["cnpj_cedente"]
+                doc.cnpj_sacado = _bf.get("cnpj_sacado")
+                if not doc.boleto_id:
+                    doc.boleto_id = _bf.get("nosso_numero")
+                if not doc.value_digits and _bf.get("valor_doc"):
+                    doc.value_digits = _bf["valor_doc"]
+                if not doc.period and _bf.get("vencimento"):
+                    doc.period = _bf["vencimento"]
 
         if log_callback:
             sec  = f"  sec={doc.value_sec_raw}"  if doc.value_sec_raw  else ""

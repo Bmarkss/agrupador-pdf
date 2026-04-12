@@ -245,6 +245,35 @@ def confidence_score(
         else:
             details["boleto_id"] = "⚠ boleto_id distinto"
 
+    # ── Sinal 3c: Chave PIX — comprovante → CNPJ/CPF do recebedor ───────────
+    # Só entra no cálculo quando há comparação REAL possível.
+    # Não penaliza grupos onde a chave PIX existe mas o outro doc não tem CNPJ.
+    pix_a   = getattr(doc_a, 'pix_key', None)
+    pix_b   = getattr(doc_b, 'pix_key', None)
+    cnpj_a2 = getattr(doc_a, 'cnpj_emitter', None)
+    cnpj_b2 = getattr(doc_b, 'cnpj_emitter', None)
+    _pix_w  = _W.get("pix_key", 0.10)
+    pix_match = None
+    # Só compara chave PIX CNPJ (14 dígitos) com cnpj_emitter do outro doc
+    can_compare_pix = (
+        (pix_a and cnpj_b2 and len(pix_a) == 14) or
+        (pix_b and cnpj_a2 and len(pix_b) == 14) or
+        (pix_a and pix_b and len(pix_a) >= 14 and len(pix_b) >= 14)
+    )
+    if can_compare_pix:
+        if pix_a and cnpj_b2 and pix_a == cnpj_b2:
+            pix_match = pix_a
+        elif pix_b and cnpj_a2 and pix_b == cnpj_a2:
+            pix_match = pix_b
+        elif pix_a and pix_b and pix_a == pix_b:
+            pix_match = pix_a
+        possible += _pix_w
+        if pix_match:
+            earned += _pix_w
+            details["pix_key"] = f"✔ chave PIX {pix_match[:8]}…"
+        else:
+            details["pix_key"] = "⚠ pix_key CNPJ sem match"
+
     # ── Sinal 4: Nome de entidade fuzzy ───────────────────────────────────
     gid_a = doc_a.group_id or ""
     gid_b = doc_b.group_id or ""
