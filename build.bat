@@ -2,11 +2,11 @@
 setlocal enabledelayedexpansion
 chcp 65001 > nul 2>&1
 
-title AgrupadorPDF - Build v1.4.0
+title AgrupadorPDF - Build v1.6.0
 
 echo.
 echo =====================================================
-echo    AgrupadorPDF v1.4.0  -  Build Script
+echo    AgrupadorPDF v1.6.0  -  Build Script
 echo =====================================================
 echo.
 
@@ -41,13 +41,14 @@ python -m pip install --upgrade pip --quiet
 python -m pip install pyinstaller --quiet
 :: charset-normalizer>=3 usa extensoes mypyc incompativeis com PyInstaller onefile
 python -m pip install "charset-normalizer<3" --quiet
-python -m pip install pypdf Pillow tkinterdnd2 --quiet
+python -m pip install pypdf pdfplumber Pillow tkinterdnd2 --quiet
+python -m pip install scikit-learn rapidfuzz networkx --quiet
 if errorlevel 1 (
     echo [ERRO] Falha ao instalar dependencias
     pause
     exit /b 1
 )
-echo OK - PyInstaller + pypdf + Pillow + tkinterdnd2
+echo OK - PyInstaller + pypdf + pdfplumber + scikit-learn + rapidfuzz + networkx
 echo.
 
 echo [3/5] Limpando builds anteriores...
@@ -109,7 +110,7 @@ echo =====================================================
 echo    BUILD CONCLUIDO COM SUCESSO!
 echo =====================================================
 echo.
-echo Instalador: dist_installer\AgrupadorPDF_v1.4.0_Installer.exe
+echo Instalador: dist_installer\AgrupadorPDF_v1.6.0_Installer.exe
 echo.
 echo Distribua apenas o arquivo Installer.exe.
 echo.

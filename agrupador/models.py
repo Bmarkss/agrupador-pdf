@@ -195,7 +195,7 @@ class DocInfo:
         # avancados v1.2.0
         "value_sec_raw","value_sec_digits",
         "all_value_digits","installment",
-        "nf_keys","cnpj_emitter","due_dates","doc_numbers","fingerprint",
+        "nf_keys","cnpj_emitter","cnpj_sacado","boleto_id","due_dates","doc_numbers","fingerprint",
         # novos v1.4.0
         "simhash","content_type","is_direct","dup_of",
     )
@@ -218,6 +218,8 @@ class DocInfo:
         self.installment=None
         self.nf_keys: set[str]=set()
         self.cnpj_emitter=None
+        self.cnpj_sacado=None
+        self.boleto_id=None
         self.due_dates: list[str]=[]
         self.doc_numbers: set[str]=set()
         self.fingerprint: set[str]=set()

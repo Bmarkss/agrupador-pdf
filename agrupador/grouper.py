@@ -245,7 +245,10 @@ def build_groups(
         for doc in gdocs: conferir.append(doc.fname)
         del groups[gid]
 
-    # Adiciona duplicatas ao log (mas nao ao CONFERIR — sao automaticamente ignoradas)
+    # ── 2k. Ambiguidades resolvidas pelo graph_resolver no merger (Fase 2.5) ────
+    pass
+
+    # Adiciona duplicatas ao log
     if dup_fnames and log_cb:
         log_cb(f"    -- {len(dup_fnames)} duplicata(s) ignorada(s): "
                + ", ".join(sorted(dup_fnames)[:3])

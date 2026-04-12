@@ -662,17 +662,23 @@ class App(_BaseApp):
                 msg  = merge_group(gid, files, dst)
                 disp = gid[:48] + "\u2026" if len(gid) > 48 else gid
 
+                # v1.6.0 — extrai score % para colorir a barra do resultado
+                _score_m = __import__("re").search(r"\[(\d+)%\]", msg)
+                _pct     = int(_score_m.group(1)) if _score_m else None
+                _line    = f"  {i:>2}/{total}   {msg.replace(gid, disp)}"
+
                 if "\u2714" in msg:
-                    self._log(
-                        f"  {i:>2}/{total}   {msg.replace(gid, disp)}", SUCCESS)
+                    # Verde escuro >= 90%, verde médio >= 80%
+                    _clr = SUCCESS if (_pct is None or _pct >= 80) else WARN
+                    self._log(_line, _clr)
                     ok += 1
                 elif "\u2718" in msg:
-                    self._log(
-                        f"  {i:>2}/{total}   {msg.replace(gid, disp)}", DANGER)
+                    self._log(_line, DANGER)
                     err += 1
                 else:
-                    self._log(
-                        f"  {i:>2}/{total}   {msg.replace(gid, disp)}", WARN)
+                    # Amarelo: score entre 65-89%
+                    _clr = WARN if (_pct is None or _pct >= 65) else DANGER
+                    self._log(_line, _clr)
                     warn += 1
 
                 pct = int(i / total * 100)

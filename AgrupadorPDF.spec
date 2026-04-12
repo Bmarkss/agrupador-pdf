@@ -1,6 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 #
-# AgrupadorPDF.spec  -  PyInstaller build spec  (v1.4.0)
+# AgrupadorPDF.spec  -  PyInstaller build spec  (v1.6.0)
 #
 
 import sys
@@ -11,6 +11,7 @@ datas = collect_data_files("tkinterdnd2")
 
 hiddenimports = (
     collect_submodules("pypdf")
+    + collect_submodules("pdfplumber")
     + collect_submodules("PIL")
     + collect_submodules("tkinterdnd2")
     + [
@@ -25,11 +26,17 @@ hiddenimports = (
         "shutil",
         "threading",
         "zipfile",
+        "sqlite3",
+        "pickle",
         "re",
         "os",
         "unicodedata",
         "pathlib",
         "collections",
+        "itertools",
+        "pdfplumber",
+        "pdfplumber.page",
+        "pdfplumber.pdf",
         "agrupador",
         "agrupador.config",
         "agrupador.models",
@@ -37,9 +44,23 @@ hiddenimports = (
         "agrupador.matcher",
         "agrupador.grouper",
         "agrupador.merger",
+        "agrupador.scorer",
+        "agrupador.classifier",
+        "agrupador.cnpj_cache",
+        "agrupador.feedback_store",
+        "agrupador.graph_resolver",
         "agrupador.ui",
         "agrupador.ui.app",
         "agrupador.ui.widgets",
+        "sklearn",
+        "sklearn.feature_extraction.text",
+        "sklearn.svm",
+        "sklearn.pipeline",
+        "sklearn.calibration",
+        "rapidfuzz",
+        "rapidfuzz.fuzz",
+        "networkx",
+        "networkx.algorithms",
     ]
 )
 

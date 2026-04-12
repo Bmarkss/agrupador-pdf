@@ -21,23 +21,56 @@ from .scorer     import cnpj_from_nfe_key
 from .classifier import classify, warmup as _warmup_classifier
 
 try:
-    from pypdf import PdfReader
+    import pdfplumber as _pdfplumber
+    _PLUMBER_OK = True
 except ImportError:
-    from PyPDF2 import PdfReader
+    _PLUMBER_OK = False
+
+try:
+    from pypdf import PdfReader as _PdfReader
+except ImportError:
+    try:
+        from PyPDF2 import PdfReader as _PdfReader
+    except ImportError:
+        _PdfReader = None
 
 
 # ── Extracao de texto ─────────────────────────────────────────────────────────
 
 def extract_text(path: str) -> tuple[str, int]:
+    """
+    Extrai texto de um PDF.
+    Tenta pdfplumber primeiro (melhor para docs fiscais com tabelas),
+    faz fallback para pypdf, e por último OCR se disponível.
+    """
     text = ""; pages = 1
-    try:
-        reader = PdfReader(path)
-        pages  = len(reader.pages)
-        text   = " ".join(p.extract_text() or "" for p in reader.pages).strip()
-    except Exception:
-        pass
+
+    # Tentativa 1: pdfplumber (primary — melhor precisão em boletos/DANFEs)
+    if _PLUMBER_OK:
+        try:
+            with _pdfplumber.open(path) as pdf:
+                pages = len(pdf.pages)
+                parts = []
+                for p in pdf.pages:
+                    t = p.extract_text(x_tolerance=3, y_tolerance=3) or ""
+                    parts.append(t)
+                text = " ".join(parts).strip()
+        except Exception:
+            text = ""
+
+    # Tentativa 2: pypdf fallback
+    if len(text) < MIN_TEXT_CHARS and _PdfReader:
+        try:
+            reader = _PdfReader(path)
+            pages  = len(reader.pages)
+            text   = " ".join(p.extract_text() or "" for p in reader.pages).strip()
+        except Exception:
+            pass
+
     if len(text) >= MIN_TEXT_CHARS:
         return text.lower(), pages
+
+    # Tentativa 3: OCR
     if OCR_AVAILABLE:
         try:
             kw = {"poppler_path": _POPPLER} if os.path.isdir(_POPPLER) else {}
@@ -47,6 +80,66 @@ def extract_text(path: str) -> tuple[str, int]:
         except Exception:
             pass
     return text.lower(), pages
+
+
+# ── Extração estruturada de boleto (pdfplumber) ───────────────────────────────
+
+_RE_NOSSO_NUM = re.compile(
+    r'nosso\s+n[uú]mero[\s\S]{0,40}?(\d[\d\/\-\.]{4,20}\d)', re.I
+)
+
+def extract_boleto_fields(path: str) -> dict:
+    """
+    Usa pdfplumber para extrair campos estruturados de boletos bancários.
+    Retorna dict com: cedente, sacado, cnpj_sacado, nosso_numero, vencimento, valor_doc.
+    Retorna {} se pdfplumber não disponível ou PDF não é boleto.
+    """
+    if not _PLUMBER_OK:
+        return {}
+    result = {}
+    try:
+        with _pdfplumber.open(path) as pdf:
+            for page in pdf.pages:
+                for table in (page.extract_tables() or []):
+                    for row in table:
+                        cells = [str(c or "").strip() for c in row]
+                        row_text = " | ".join(cells).lower()
+
+                        for cell in cells:
+                            cell_l = cell.lower()
+                            # Cedente (quem emite o boleto)
+                            if "cedente" in cell_l and len(cells) > 1:
+                                idx = next((i for i,c in enumerate(cells) if "cedente" in c.lower()), -1)
+                                if idx >= 0 and idx+1 < len(cells) and cells[idx+1]:
+                                    result['cedente'] = cells[idx+1].split('\n')[0].strip()
+                            # Sacado (quem paga — normalmente LOGLIFE)
+                            if "sacado" in cell_l:
+                                # Extrai CNPJ do sacado
+                                cnpjs = RE_CNPJ.findall(cell)
+                                if cnpjs:
+                                    result['cnpj_sacado'] = re.sub(r'\D','', cnpjs[0])
+                            # Nosso Número
+                            if "nosso" in cell_l and "n" in cell_l:
+                                m = _RE_NOSSO_NUM.search(cell)
+                                if m:
+                                    result['nosso_numero'] = re.sub(r'[\s\-]','', m.group(1))
+                            # Vencimento
+                            if "vencimento" in cell_l:
+                                dates = RE_DUE_DATE.findall(cell)
+                                if dates:
+                                    result['vencimento'] = dates[0]
+                            # Valor do documento
+                            if "valor" in cell_l and "documento" in cell_l:
+                                idx = next((i for i,c in enumerate(cells)
+                                           if "valor" in c.lower() and "doc" in c.lower()), -1)
+                                if idx >= 0 and idx+1 < len(cells):
+                                    val_cell = cells[idx+1]
+                                    _, val_d = extract_value(val_cell)
+                                    if val_d:
+                                        result['valor_doc'] = val_d
+    except Exception:
+        pass
+    return result
 
 
 # ── Deteccao de tipo de pagamento pelo conteudo ───────────────────────────────
@@ -365,6 +458,21 @@ def collect_all(
         doc.doc_numbers  = extract_doc_numbers(doc.stem, doc.content)
         doc.period       = extract_period(stem_clean, doc.content)
         doc.fingerprint  = extract_fingerprint(doc.stem, doc.content)
+
+        # v1.6.0 — extração estruturada de boleto via pdfplumber
+        if doc.doc_type in ("boleto", None) or "boleto" in (doc.type_segment or "").lower():
+            _bf = extract_boleto_fields(path)
+            if _bf:
+                if not doc.cnpj_emitter and _bf.get("cnpj_cedente"):
+                    doc.cnpj_emitter = _bf["cnpj_cedente"]
+                doc.cnpj_sacado = _bf.get("cnpj_sacado")
+                doc.boleto_id   = _bf.get("nosso_numero")
+                # Se extraiu valor do boleto e não tinha, usa
+                if not doc.value_digits and _bf.get("valor_doc"):
+                    doc.value_digits = _bf["valor_doc"]
+                # Se extraiu vencimento e não tinha período, usa
+                if not doc.period and _bf.get("vencimento"):
+                    doc.period = _bf["vencimento"]
 
         # v1.4.0 — SimHash e content_type
         doc.simhash      = simhash(doc.content[:8000]) if doc.content else 0

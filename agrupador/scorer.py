@@ -24,6 +24,11 @@ import re
 import unicodedata
 from typing import TYPE_CHECKING
 
+try:
+    from .feedback_store import get_learned_weights as _get_weights
+except Exception:
+    _get_weights = None
+
 if TYPE_CHECKING:
     from .models import DocInfo
 
@@ -33,13 +38,26 @@ SCORE_YELLOW = 0.65   # ⚠ revisar
 # < SCORE_YELLOW → ✘ suspeito
 
 # ── Pesos por sinal ───────────────────────────────────────────────────────────
-_W = {
-    "nf_key":   0.50,   # chave NF-e de 44 dígitos compartilhada
-    "cnpj":     0.30,   # CNPJ emitente idêntico (extraído da chave ou conteúdo)
-    "value":    0.15,   # valor monetário exato
-    "entity":   0.10,   # nome de entidade fuzzy ≥ 80%
-    "period":   0.05,   # período coincidente
+# Pesos padrão — substituídos por pesos aprendidos do feedback quando disponível
+_W_DEFAULT = {
+    "nf_key":   0.50,
+    "cnpj":     0.30,
+    "value":    0.15,
+    "entity":   0.10,
+    "period":   0.05,
 }
+
+def _get_current_weights() -> dict:
+    """Retorna pesos aprendidos se disponíveis, senão pesos padrão."""
+    if _get_weights:
+        try:
+            w = _get_weights()
+            if w: return w
+        except Exception:
+            pass
+    return _W_DEFAULT
+
+_W = _W_DEFAULT   # alias para compatibilidade com código existente
 
 # ── Sufixos jurídicos para normalização de nomes ─────────────────────────────
 _LEGAL = frozenset({
@@ -152,6 +170,7 @@ def confidence_score(
       >= SCORE_YELLOW →  média confiança
       <  SCORE_YELLOW →  baixa confiança
     """
+    _W = _get_current_weights()   # carrega pesos atuais (aprendidos ou padrão)
     earned = 0.0
     possible = 0.0
     details: dict[str, float | str] = {}
@@ -183,19 +202,48 @@ def confidence_score(
         else:
             details["cnpj"] = "✘ CNPJs diferentes"
 
-    # ── Sinal 3: Valor monetário exato ────────────────────────────────────
+    # ── Sinal 3: Valor monetário + subset sum de parcelas ────────────────────
     val_a = doc_a.value_digits
     val_b = doc_b.value_digits
-    # Também considera all_value_digits (ex: soma de parcelas)
     all_a = set(doc_a.all_value_digits or [])
     all_b = set(doc_b.all_value_digits or [])
     if val_a and val_b:
         possible += _W["value"]
-        if val_a == val_b or (all_a & all_b):
+        match_val    = (val_a == val_b)
+        match_subset = bool(all_a & all_b)
+        # Subset sum: soma de parcelas bate com total? ex: 810266+810265=1620531
+        if not match_val and not match_subset and all_a and all_b:
+            try:
+                import itertools
+                tgt_a = int(val_a); tgt_b = int(val_b)
+                vla = [int(v) for v in all_a if v.isdigit() and len(v) <= 10]
+                vlb = [int(v) for v in all_b if v.isdigit() and len(v) <= 10]
+                for r in range(2, min(len(vla)+1, 6)):
+                    if any(abs(sum(c) - tgt_b) <= 5 for c in itertools.combinations(vla, r)):
+                        match_subset = True; break
+                if not match_subset:
+                    for r in range(2, min(len(vlb)+1, 6)):
+                        if any(abs(sum(c) - tgt_a) <= 5 for c in itertools.combinations(vlb, r)):
+                            match_subset = True; break
+            except Exception:
+                pass
+        if match_val or match_subset:
             earned += _W["value"]
-            details["value"] = f"✔ valor {doc_a.value_raw or val_a}"
+            lbl = "parcelas" if (match_subset and not match_val) else "valor"
+            details["value"] = f"✔ {lbl} {doc_a.value_raw or val_a}"
         else:
             details["value"] = f"⚠ valores distintos ({doc_a.value_raw} vs {doc_b.value_raw})"
+
+    # ── Sinal 3b: Nosso Número do boleto (identificador único FEBRABAN) ───────
+    bid_a = getattr(doc_a, 'boleto_id', None)
+    bid_b = getattr(doc_b, 'boleto_id', None)
+    if bid_a and bid_b:
+        possible += _W.get("boleto_id", 0.15)
+        if bid_a == bid_b:
+            earned  += _W.get("boleto_id", 0.15)
+            details["boleto_id"] = f"✔ Nosso Número {bid_a}"
+        else:
+            details["boleto_id"] = "⚠ boleto_id distinto"
 
     # ── Sinal 4: Nome de entidade fuzzy ───────────────────────────────────
     gid_a = doc_a.group_id or ""

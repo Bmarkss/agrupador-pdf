@@ -13,7 +13,9 @@ from .config  import ORDER_MERGE
 from .models  import DocInfo
 from .extractor import collect_all
 from .grouper   import build_groups
-from .scorer    import group_confidence, score_to_symbol, score_to_label, SCORE_GREEN, SCORE_YELLOW
+from .scorer         import group_confidence, confidence_score, score_to_symbol, score_to_label, SCORE_GREEN, SCORE_YELLOW
+from .feedback_store  import record_grouping
+from .graph_resolver  import resolve_with_graph, find_orphan_matches
 
 
 def _build_output_name(group_id, docs):
@@ -129,6 +131,13 @@ def merge_group(group_id: str, docs: list[DocInfo], output_folder: str) -> str:
     # Contexto adicional: tipos presentes
     tipos_str = "+".join(t[0].upper() for t in used_types) if used_types else "?"
 
+    # Registra grupos verdes como feedback positivo (active learning)
+    if score >= SCORE_GREEN:
+        try:
+            record_grouping(group_id, [d.doc_type for d in docs if d.doc_type], score, det)
+        except Exception:
+            pass
+
     return f"{sym} {group_id}  [{label}] ({tipos_str}){extra_s}{size_tag}"
 
 
@@ -139,5 +148,28 @@ def scan_folder(folder, log_callback=None, cancel_flag=None):
     if cancel_flag and cancel_flag(): return {}, []
     if log_callback: log_callback(f"\n  -- Fase 2: analisando {len(docs)} doc(s)...")
     groups, conferir = build_groups(docs, log_callback)
+
+    # Fase 2.5 — Grafo: resolve ambiguidades entre grupos e busca matches para orphans
+    if len(groups) > 1:
+        groups, suggestions = resolve_with_graph(
+            groups, confidence_score, log_cb=log_callback
+        )
+        if suggestions and log_callback:
+            log_callback(f"    -- {len(suggestions)} sugestao(oes) de merge disponivel(is)")
+
+    if conferir and groups:
+        orphan_matches = find_orphan_matches(
+            groups, conferir, docs, confidence_score, log_cb=log_callback
+        )
+        # Remove do CONFERIR os orphans que encontraram match
+        for fname, gid in orphan_matches.items():
+            doc = next((d for d in docs if d.fname == fname), None)
+            if doc:
+                doc.group_id = gid
+                groups[gid].append(doc)
+                conferir.remove(fname)
+                if log_callback:
+                    log_callback(f"    -> orphan resolvido: '{fname[:40]}' -> '{gid}'")
+
     if log_callback: log_callback(f"\n  -- Fase 3: {len(groups)} grupo(s) prontos\n")
     return groups, conferir
