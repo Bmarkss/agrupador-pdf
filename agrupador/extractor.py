@@ -404,7 +404,11 @@ def extract_group_id(stem: str) -> str | None:
     """
     # Remove VENCIMENTO DD-MM-YYYY do stem (nao e parte da entidade)
     stem = RE_VENCIMENTO.sub("", stem).strip()
-    stem = re.sub(r"  +", " - ", stem)
+    # Normaliza espaços inconsistentes ao redor do separador " - "
+    # Ex: "LACRES GOLD LTDA  - C" → "LACRES GOLD LTDA - C"  (não "LACRES GOLD LTDA - - C")
+    # Ex: "AQUA  PURA - BOLETO"   → "AQUA PURA - BOLETO"    (não "AQUA - PURA - BOLETO")
+    stem = re.sub(r'\s{2,}-\s*|\s*-\s{2,}', ' - ', stem)   # espaços em torno do traço
+    stem = re.sub(r' {2,}', ' ', stem)                       # espaços duplos internos
     s    = RE_STRIP_C.sub("", stem).strip()
     s    = re.sub(r"(\w)-\s+(?=R?\$|\d)", r"\1 - ", s)
     parts = re.split(r"\s+-\s+", s)
