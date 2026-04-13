@@ -40,11 +40,14 @@ SCORE_YELLOW = 0.65   # ⚠ revisar
 # ── Pesos por sinal ───────────────────────────────────────────────────────────
 # Pesos padrão — substituídos por pesos aprendidos do feedback quando disponível
 _W_DEFAULT = {
-    "nf_key":   0.50,
-    "cnpj":     0.30,
-    "value":    0.15,
-    "entity":   0.10,
-    "period":   0.05,
+    "nf_key":    0.45,
+    "cnpj":      0.20,
+    "boleto_id": 0.14,
+    "pix_key":   0.09,
+    "bank_code": 0.05,
+    "value":     0.09,
+    "entity":    0.08,
+    "period":    0.05,
 }
 
 def _get_current_weights() -> dict:
@@ -273,6 +276,23 @@ def confidence_score(
             details["pix_key"] = f"✔ chave PIX {pix_match[:8]}…"
         else:
             details["pix_key"] = "⚠ pix_key CNPJ sem match"
+
+    # ── Sinal 3d: Código do banco (boleto ↔ comprovante mesmo banco) ─────────
+    bc_a = getattr(doc_a, 'bank_code', None)
+    bc_b = getattr(doc_b, 'bank_code', None)
+    if bc_a and bc_b:
+        _bw = _W.get("bank_code", 0.05)
+        possible += _bw
+        if bc_a == bc_b:
+            earned += _bw
+            try:
+                from .extractor import bank_name as _bn
+                nome_banco = _bn(bc_a) or bc_a
+            except Exception:
+                nome_banco = bc_a
+            details["bank_code"] = f"✔ banco {nome_banco}"
+        else:
+            details["bank_code"] = f"⚠ bancos distintos ({bc_a} vs {bc_b})"
 
     # ── Sinal 4: Nome de entidade fuzzy ───────────────────────────────────
     gid_a = doc_a.group_id or ""

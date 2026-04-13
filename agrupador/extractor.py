@@ -49,17 +49,23 @@ def extract_text(path: str) -> tuple[str, int]:
     """
     text = ""; pages = 1
 
-    # Tentativa 1: pypdf (rápido — ~10ms/página)
-    if _PdfReader:
+    # Tentativa 1: pypdf — skip em PDFs > 3MB (contratos/relatórios pesados)
+    # Para docs fiscais, o GID vem do nome do arquivo; o conteúdo é complementar.
+    _fsize_kb = os.path.getsize(path) // 1024 if os.path.exists(path) else 0
+    if _PdfReader and _fsize_kb <= 3000:
         try:
             reader = _PdfReader(path)
             pages  = len(reader.pages)
-            text   = " ".join(p.extract_text() or "" for p in reader.pages).strip()
+            # Lê no máximo 8 páginas para documentos multi-página
+            pages_to_read = reader.pages[:8] if pages > 8 else reader.pages
+            text   = " ".join(p.extract_text() or "" for p in pages_to_read).strip()
         except Exception:
             pass
 
     # Tentativa 2: pdfplumber como fallback se pypdf extraiu pouco
-    if len(text) < MIN_TEXT_CHARS and _PLUMBER_OK:
+    # Limita a 5MB para evitar timeout em PDFs grandes (ex: relatórios com imagens)
+    _fsize = os.path.getsize(path) if os.path.exists(path) else 0
+    if len(text) < MIN_TEXT_CHARS and _PLUMBER_OK and _fsize < 5_000_000:
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
@@ -167,6 +173,9 @@ def extract_boleto_fields(path: str) -> dict:
     if not _PLUMBER_OK:
         return {}
     result = {}
+    # Boletos legítimos são < 2MB — ignora PDFs muito grandes
+    if os.path.getsize(path) > 2_000_000:
+        return {}
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")

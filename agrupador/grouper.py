@@ -161,7 +161,7 @@ def build_groups(
 
     # ── 2c2. Mesmo segmento + mesmo valor (exclui prefixos genericos) ─────────
     _GENERIC = frozenset({
-        "FUNCIONARIOS","ESTADO","MINISTERIO",
+        "FUNCIONARIOS","ESTADO","MINISTERIO","GNRE",
         "SECRETARIA","MUNICIPIO","PREFEITURA","GOVERNO",
         "CAIXA ECONOMICA","BANCO",
     })
@@ -169,7 +169,7 @@ def build_groups(
     for i, ga in enumerate(gids):
         if ga in to_del or ga not in groups: continue
         fs_a = _first_seg(ga)
-        if normalize(fs_a) in _GENERIC: continue
+        if any(tok in _GENERIC for tok in normalize(fs_a).split()): continue
         va = _all_val_digits(groups[ga])
         for gb in gids[i+1:]:
             if gb in to_del or gb not in groups: continue

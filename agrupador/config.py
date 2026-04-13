@@ -48,11 +48,12 @@ TYPE_GROUPS: dict[str,list[str]] = {
     "comprovante": ["comp","comprov","comprovante","pag","pago","pagamento",
                     "pix","ted","transf","transferencia","qit","autent"],
     "boleto":      ["bol","blt","boleto","ban","cob","cobr","tit","titulo",
-                    "linha","guia","carne"],
+                    "linha","carne"],
     "nota":        ["nf","nfe","nfs","nfse","nf-e","nfs-e","fat","fatura",
                     "faturamento","cte","ct-e","cte-e","dacte","dacte-e",
                     "danfe","nota","fiscal","rpa","recibo_fiscal","serv",
                     "servico","relatorio","relacao"],
+    "gnre":        ["gnre","estado"],   # "ESTADO DE XX" → sempre GNRE
 }
 SEG_MAP: dict[str,str] = {w:t for t,ws in TYPE_GROUPS.items() for w in ws}
 
