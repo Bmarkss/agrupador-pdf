@@ -32,7 +32,7 @@ if sys.platform=="win32":
     _sp.Popen.__init__=_pnw
 
 # ── Versao ────────────────────────────────────────────────────────────────────
-VERSION        = "1.7.0"
+VERSION        = "1.6.0"
 ORDER_MERGE    = ["comprovante","boleto","nota"]
 MIN_TEXT_CHARS = 80
 NF_KEY_LEN     = 44
@@ -116,20 +116,22 @@ RE_DOC_NUMBER  = re.compile(
     r"\b(?:nf|nfe|nfs|nfse|cte|ct-e|bol)\s*[:\s]?\s*(\d{3,10})\b",
     re.IGNORECASE)
 
-# ── Design System ─────────────────────────────────────────────────────────────
-BG="#eaeff8";SURFACE="#0062b0";SURF2="#00529a";CARD="#ffffff";CARD2="#f0f5fb"
-BORDER="#c0d0e8";BORDER2="#9cb8d8"
-ACC="#0068c0";ACC2="#0058a8";ACC3="#004890";ACC_GLOW="#4da8ff";ACCDIM="#dceefa"
-FG="#1a2535";MUTED="#547090";SUBTLE="#8098b8"
-SUCCESS="#1a7a3c";SUCCESS_BG="#e6f4ea";WARN="#9a4e00";WARN_BG="#fff4e0"
-DANGER="#b83228";DANGER_BG="#fde8e8";INFO_BG="#edf3fb"
-ELEV_1="#d0ddf0";ELEV_2="#bccce4";ELEV_3="#a8bbd8"
-FONT_HERO=("Segoe UI Black",18);FONT_TITLE=("Segoe UI Black",12)
-FONT_HEADING=("Segoe UI Semibold",10);FONT_LABEL=("Segoe UI Semibold",8)
-FONT_LABEL_S=("Segoe UI Semibold",7);FONT_BODY=("Segoe UI",9)
+# ── Design System v1.6.0 — Dark Precision ────────────────────────────────────
+# Paleta: carvão profundo + marfim + laranja âmbar como único acento
+# Tipografia: Consolas mono para dados, Segoe UI Light para texto
+BG="#111418";SURFACE="#1a1e24";SURF2="#20252d";CARD="#1e232b";CARD2="#252b35"
+BORDER="#2e3542";BORDER2="#3a4455"
+ACC="#e8924a";ACC2="#d07a35";ACC3="#b86420";ACC_GLOW="#f0a060";ACCDIM="#3a2410"
+FG="#e8e2d9";MUTED="#7a8494";SUBTLE="#4a5568"
+SUCCESS="#4caf7d";SUCCESS_BG="#0d2318";WARN="#e8b84a";WARN_BG="#241a08"
+DANGER="#e05555";DANGER_BG="#2a0e0e";INFO_BG="#131c28"
+ELEV_1="#232931";ELEV_2="#2a3040";ELEV_3="#313850"
+FONT_HERO=("Segoe UI Light",20);FONT_TITLE=("Segoe UI Semibold",11)
+FONT_HEADING=("Segoe UI",10);FONT_LABEL=("Segoe UI",8)
+FONT_LABEL_S=("Segoe UI",7);FONT_BODY=("Segoe UI",9)
 FONT_BODY_S=("Segoe UI",8);FONT_HINT=("Segoe UI",7);FONT_MONO=("Consolas",9)
-FONT_BADGE=("Segoe UI Semibold",9);FONT_NUM=("Segoe UI Black",22)
+FONT_BADGE=("Consolas",9);FONT_NUM=("Segoe UI Light",24)
 SP_2=2;SP_4=4;SP_6=6;SP_8=8;SP_10=10
 SP_12=12;SP_14=14;SP_16=16;SP_20=20;SP_24=24;SP_32=32
-HEIGHT_INPUT=34;HEIGHT_BTN_SM=34;HEIGHT_BTN_LG=52;HEIGHT_PROG=68
-R_SM=6;R_MD=10;R_LG=14
+HEIGHT_INPUT=34;HEIGHT_BTN_SM=34;HEIGHT_BTN_LG=48;HEIGHT_PROG=60
+R_SM=4;R_MD=6;R_LG=10
