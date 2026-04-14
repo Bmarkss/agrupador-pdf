@@ -545,9 +545,11 @@ def classify_segment(segment: str | None) -> str | None:
     if s in SEG_MAP:
         return SEG_MAP[s]
     for word, tipo in SEG_MAP.items():
-        if re.search(r"\b" + re.escape(word) + r"\b", s):
+        # Usa word boundary flexivel: aceita separadores nao-alfanumericos
+        # Ex: "gnre_-_167" nao casa com \bgnre\b (underscore eh word char)
+        if re.search(r"(?<![a-zA-Z0-9])" + re.escape(word) + r"(?![a-zA-Z0-9])", s):
             return tipo
-    return "nota"
+    return None  # Nenhum keyword reconhecido — deixa pipeline tentar ML/content
 
 
 # ── Fase 1: coleta principal ──────────────────────────────────────────────────
