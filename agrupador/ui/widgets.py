@@ -1,5 +1,5 @@
 """
-ui/widgets.py — Componentes visuais AgrupadorPDF v1.6.2
+ui/widgets.py — Componentes visuais AgrupadorPDF v1.6.3
 Design System: Neobrutalista — Branco / Cinza / Azul Capri
 """
 import tkinter as tk

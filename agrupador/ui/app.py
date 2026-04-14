@@ -1,5 +1,5 @@
 """
-ui/app.py — AgrupadorPDF v1.6.2
+ui/app.py — AgrupadorPDF v1.6.3
 Design System: Neobrutalista — Branco / Cinza / Azul Capri
 """
 import os, json, re, shutil, threading, webbrowser
