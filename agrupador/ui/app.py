@@ -1,5 +1,5 @@
 """
-ui/app.py — AgrupadorPDF v1.6.0
+ui/app.py — AgrupadorPDF v1.6.2
 Design System: Dark Precision
 """
 
@@ -146,7 +146,7 @@ class App(_BaseApp):
         ft = tk.Frame(self, bg=SURFACE)
         ft.pack(fill="x", side="bottom")
         tk.Frame(ft, bg=BORDER, height=1).pack(fill="x")
-        tk.Label(ft, text="Loglife Logística  ·  Brian Marques",
+        tk.Label(ft, text=f"AgrupadorPDF  v{VERSION}",
                  font=FONT_HINT, bg=SURFACE, fg=SUBTLE, pady=5).pack()
 
     # ── Body ──────────────────────────────────────────────────────────────────
@@ -521,7 +521,7 @@ class App(_BaseApp):
                 msg  = merge_group(gid, files, dst)
                 disp = gid[:48] + "…" if len(gid) > 48 else gid
 
-                # v1.6.0 — cor baseada no score %
+                # v1.6.2 — cor baseada no score %
                 _sm = re.search(r'\[([⚠✔✘])\s*(\d+)%\]', msg)
                 _pct = int(_sm.group(2)) if _sm else None
 

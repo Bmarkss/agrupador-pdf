@@ -32,7 +32,7 @@ if sys.platform=="win32":
     _sp.Popen.__init__=_pnw
 
 # ── Versao ────────────────────────────────────────────────────────────────────
-VERSION        = "1.6.0"
+VERSION        = "1.6.2"
 ORDER_MERGE    = ["comprovante","boleto","nota"]
 MIN_TEXT_CHARS = 80
 NF_KEY_LEN     = 44
@@ -116,7 +116,7 @@ RE_DOC_NUMBER  = re.compile(
     r"\b(?:nf|nfe|nfs|nfse|cte|ct-e|bol)\s*[:\s]?\s*(\d{3,10})\b",
     re.IGNORECASE)
 
-# ── Design System v1.6.0 — Dark Precision ────────────────────────────────────
+# ── Design System v1.6.2 — Dark Precision ────────────────────────────────────
 # Paleta: carvão profundo + marfim + laranja âmbar como único acento
 # Tipografia: Consolas mono para dados, Segoe UI Light para texto
 BG="#111418";SURFACE="#1a1e24";SURF2="#20252d";CARD="#1e232b";CARD2="#252b35"

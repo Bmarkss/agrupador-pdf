@@ -1,5 +1,5 @@
 """
-ui/widgets.py — Componentes visuais AgrupadorPDF v1.6.0
+ui/widgets.py — Componentes visuais AgrupadorPDF v1.6.2
 Design System: Dark Precision
   - Paleta carvão profundo + âmbar como acento único
   - Tipografia Segoe UI Light / Consolas
@@ -218,8 +218,6 @@ class Tooltip(tk.Toplevel):
         "",
         "Drag-and-drop nas pastas.",
         "Score 0–100% por grupo.",
-        "",
-        "Brian Marques · Loglife Logística",
     ]
 
     def __init__(self, widget):
@@ -235,7 +233,7 @@ class Tooltip(tk.Toplevel):
         for line in self._LINES:
             c = MUTED if "─" in line else (
                 ACC if "AgrupadorPDF" in line else FG)
-            fnt = FONT_HINT if ("Loglife" in line or not line) else FONT_BODY
+            fnt = FONT_HINT if (not line or "─" in line) else FONT_BODY
             tk.Label(pad, text=line, font=fnt, bg=SURFACE, fg=c,
                      anchor="w").pack(anchor="w")
         widget.bind("<Enter>", self._show)
