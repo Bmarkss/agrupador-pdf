@@ -19,6 +19,11 @@ from .config import (
 from .models import DocInfo, normalize, normalize_value, simhash
 from .scorer     import cnpj_from_nfe_key
 from .classifier import classify, warmup as _warmup_classifier
+try:
+    from .cnpj_cache import lookup_cnpj_async as _lookup_cnpj_async
+    _CNPJ_CACHE_OK = True
+except ImportError:
+    _CNPJ_CACHE_OK = False
 
 try:
     import pdfplumber as _pdfplumber
@@ -402,6 +407,8 @@ def extract_group_id(stem: str) -> str | None:
     Extrai a ENTIDADE do nome do arquivo.
     v1.4.0: remove tokens VENCIMENTO antes de processar.
     """
+    # Normaliza unicode URL-encoded que pode vir do filesystem
+    stem = _fix_url_unicode(stem)
     # Remove VENCIMENTO DD-MM-YYYY do stem (nao e parte da entidade)
     stem = RE_VENCIMENTO.sub("", stem).strip()
     # Normaliza espaços inconsistentes ao redor do separador " - "
@@ -559,6 +566,13 @@ def collect_all(
             None
         )
         doc.cnpj_emitter = _cnpj_from_key or extract_cnpj(doc.content[:4000])
+        # Enriquece entity_name via cache CNPJ (background, sem bloquear)
+        if doc.cnpj_emitter and _CNPJ_CACHE_OK and not doc.group_id:
+            def _cb(result, d=doc):
+                if result and result.get("nome"):
+                    d.group_id = result["nome"][:60]
+            try: _lookup_cnpj_async(doc.cnpj_emitter, _cb)
+            except Exception: pass
         doc.due_dates    = extract_due_dates(doc.content)
         doc.doc_numbers  = extract_doc_numbers(doc.stem, doc.content)
         doc.period       = extract_period(stem_clean, doc.content)
