@@ -318,7 +318,16 @@ def confidence_score(
             earned += _W["period"]
             details["period"] = f"✔ período {per_a}"
         else:
-            details["period"] = f"⚠ períodos distintos ({per_a} vs {per_b})"
+            # Parcelas: períodos diferentes são esperados quando ambos os docs
+            # têm installment definido (ex: ISOMAX parc 1/3 e parc 2/3).
+            # Nesse caso não penaliza e considera neutro (não soma nem subtrai).
+            inst_a = getattr(doc_a, "installment", None)
+            inst_b = getattr(doc_b, "installment", None)
+            if inst_a or inst_b:
+                details["period"] = f"✔ parcelas — períodos distintos OK ({per_a} vs {per_b})"
+                earned += _W["period"]
+            else:
+                details["period"] = f"⚠ períodos distintos ({per_a} vs {per_b})"
 
     # ── Score normalizado ─────────────────────────────────────────────────
     if possible == 0.0:

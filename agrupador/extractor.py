@@ -642,9 +642,10 @@ def collect_all(
             or (_ml_type if _ml_type != "desconhecido" and _ml_conf >= 0.50 else None)
             or classify_by_content(doc.content)
         )
-        # v1.7.0 — PIX key e bank code (APÓS classificação — doc_type já definido)
+        # v1.6.4 — PIX key e bank code (APÓS classificação — doc_type já definido)
         if doc.doc_type == "comprovante" and doc.content:
-            doc.pix_key = extract_pix_key(doc.content)
+            doc.pix_key   = extract_pix_key(doc.content)
+            doc.bank_code = extract_bank_code(doc.content)  # comprovante pode ter cod banco
         if doc.doc_type == "boleto":
             doc.bank_code = extract_bank_code(doc.content)
             # Extração estruturada via pdfplumber (só boletos, após classificar)

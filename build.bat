@@ -2,7 +2,7 @@
 chcp 65001 > nul
 echo.
 echo =====================================================
-echo    AgrupadorPDF v1.6.3  -  Build Script
+echo    AgrupadorPDF v1.6.4  -  Build Script
 echo =====================================================
 echo.
 
@@ -116,7 +116,7 @@ echo =====================================================
 echo    BUILD CONCLUIDO COM SUCESSO!
 echo =====================================================
 echo.
-echo Instalador: dist_installer\AgrupadorPDF_v1.6.3_Installer.exe
+echo Instalador: dist_installer\AgrupadorPDF_v1.6.4_Installer.exe
 echo.
 echo Distribua apenas o arquivo Installer.exe.
 echo.
