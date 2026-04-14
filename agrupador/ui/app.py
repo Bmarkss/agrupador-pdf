@@ -33,9 +33,10 @@ from .widgets import (
 )
 
 _CFG = os.path.join(os.path.expanduser("~"), ".agrupadorpdf.json")
+# Auto-update via GitHub Releases API — detecta nova versão automaticamente
+# quando um Release é publicado no repositório. Zero configuração manual.
 UPDATE_CHECK_URL = (
-    "https://gist.githubusercontent.com/Bmarkss/"
-    "0f1d2bf6af3b4fe583f1f7ef22b6beed/raw/agrupador_pdf_version.json"
+    "https://api.github.com/repos/Bmarkss/agrupador-pdf/releases/latest"
 )
 
 _BaseApp = _TkDnD.Tk if _DND_OK else tk.Tk
@@ -719,16 +720,32 @@ class App(_BaseApp):
         return tuple(int(n) for n in nums)
 
     def _checar_updates(self):
-        if not UPDATE_CHECK_URL or "placeholder" in UPDATE_CHECK_URL:
-            return
         def _worker():
             try:
-                with urlopen(UPDATE_CHECK_URL, timeout=5) as r:
+                req = __import__("urllib.request", fromlist=["Request"]).Request(
+                    UPDATE_CHECK_URL,
+                    headers={"User-Agent": f"AgrupadorPDF/{VERSION}"}
+                )
+                with urlopen(req, timeout=8) as r:
                     dados = json.loads(r.read().decode())
-                vr = dados.get("version", "")
-                if self._versao_para_tuple(vr) > self._versao_para_tuple(VERSION):
-                    self.after(0, self._mostrar_aviso_update, dados)
-            except Exception: pass
+
+                # GitHub Releases API: tag_name = "v1.6.5", assets = [{...}]
+                tag  = dados.get("tag_name", "")           # ex: "v1.6.5"
+                vr   = tag.lstrip("v")                      # ex: "1.6.5"
+                body = dados.get("body", "")                # changelog do release
+                assets = dados.get("assets", [])
+                # Pega o primeiro .exe nos assets
+                url = next(
+                    (a["browser_download_url"] for a in assets
+                     if a.get("name", "").lower().endswith(".exe")),
+                    dados.get("html_url", "")               # fallback: página do release
+                )
+
+                if vr and self._versao_para_tuple(vr) > self._versao_para_tuple(VERSION):
+                    self.after(0, self._mostrar_aviso_update,
+                               {"version": vr, "download_url": url, "changelog": body})
+            except Exception:
+                pass
         threading.Thread(target=_worker, daemon=True).start()
 
     def _mostrar_aviso_update(self, dados):
@@ -736,7 +753,10 @@ class App(_BaseApp):
         url = dados.get("download_url", "")
         cl  = dados.get("changelog", "")
         msg = f"Nova versao disponivel: v{vn}\nVersao atual: v{VERSION}\n"
-        if cl: msg += f"\nNovidades:\n{cl}"
-        msg += "\n\nAbrir pagina de download?"
+        if cl:
+            # Mostra apenas as primeiras 3 linhas do changelog
+            linhas = [l for l in cl.splitlines() if l.strip()][:3]
+            msg += "\nNovidades:\n" + "\n".join(f"  {l}" for l in linhas) + "\n"
+        msg += "\nBaixar e instalar agora?"
         if url and messagebox.askyesno("Atualizacao disponivel", msg):
             webbrowser.open(url)

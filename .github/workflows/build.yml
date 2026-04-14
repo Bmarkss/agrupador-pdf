@@ -1,0 +1,85 @@
+# ============================================================
+#  AgrupadorPDF — Build e Release Automático
+#
+#  Como usar:
+#    1. Atualize VERSION em agrupador/config.py (ex: "1.6.5")
+#    2. git add . && git commit -m "chore: bump v1.6.5"
+#    3. git tag v1.6.5
+#    4. git push origin main --tags
+#
+#  O GitHub Actions faz o resto:
+#    - Builda o .exe com PyInstaller
+#    - Gera o instalador com Inno Setup
+#    - Cria o Release com o .exe como download
+# ============================================================
+
+name: Build e Release
+
+on:
+  push:
+    tags:
+      - 'v*'          # Dispara em qualquer tag que começa com "v"
+
+permissions:
+  contents: write     # Necessário para criar Releases
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      # 1. Baixar o código
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2. Instalar Python 3.12
+      - name: Instalar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # 3. Instalar dependências Python
+      - name: Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyinstaller pypdf pdfplumber scikit-learn rapidfuzz networkx tkinterdnd2
+
+      # 4. Extrair versão da tag (ex: v1.6.5 -> 1.6.5)
+      - name: Extrair versão
+        id: versao
+        shell: bash
+        run: echo "VERSAO=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      # 5. Buildar o .exe com PyInstaller
+      - name: Buildar .exe
+        run: python -m PyInstaller AgrupadorPDF.spec --noconfirm
+
+      # 6. Instalar Inno Setup via Chocolatey
+      - name: Instalar Inno Setup
+        run: choco install innosetup --yes
+
+      # 7. Gerar instalador
+      - name: Gerar instalador
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          & $iscc AgrupadorPDF_Installer.iss
+        shell: pwsh
+
+      # 8. Criar Release no GitHub e subir o instalador
+      - name: Criar Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "AgrupadorPDF v${{ steps.versao.outputs.VERSAO }}"
+          tag_name: ${{ github.ref_name }}
+          body: |
+            ## AgrupadorPDF v${{ steps.versao.outputs.VERSAO }}
+
+            ### Instalação
+            Baixe o arquivo `AgrupadorPDF_v${{ steps.versao.outputs.VERSAO }}_Installer.exe` abaixo e execute.
+
+            ### Atualização
+            Se já tem o app instalado, feche-o antes de rodar o novo instalador.
+          files: |
+            dist_installer/AgrupadorPDF_v${{ steps.versao.outputs.VERSAO }}_Installer.exe
+          draft: false
+          prerelease: false
