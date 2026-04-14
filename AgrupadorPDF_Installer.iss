@@ -59,7 +59,7 @@ Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortugue
 ; -- Arquivos a instalar ------------------------------------------------------
 [Files]
 Source: "dist\{#AppExeName}";  DestDir: "{app}"; Flags: ignoreversion
-Source: "{#AppDocName}";        DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\{#AppDocName}";  DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 
 
 ; -- Atalhos ------------------------------------------------------------------
