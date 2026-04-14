@@ -105,12 +105,12 @@ RE_DUE_DATE    = re.compile(
     r"venc(?:imento|e)?\W{0,4}(\d{2})[/.\-](\d{2})[/.\-](\d{4})"
     r"|(\d{2})[/.\-](\d{2})[/.\-](\d{4})\W{0,6}venc", re.IGNORECASE)
 RE_COMP_C      = re.compile(
-    r"(?:(?:^|\s+-\s+)C(?:\s+-\s+|\s*-\s*(?=\d|R?\$)|$))"
-    r"|(?:\s*-\s*C$)", re.IGNORECASE)
+    r"(?:(?:^|[\s_]+-[\s_]+)C(?:[\s_]+-[\s_]+|[\s_]*-[\s_]*(?=\d|R?\$)|$))"
+    r"|(?:[\s_]*-[\s_]*C$)", re.IGNORECASE)
 RE_STRIP_C     = re.compile(
-    r"\s+-\s+C(?=\s+-|\s*-\s*(?=\d|R?\$))"
-    r"|\s*-\s*C\s*-\s*(?=\d|R?\$)"
-    r"|\s*-\s*C\s*$", re.IGNORECASE)
+    r"[\s_]+-[\s_]+C(?=[\s_]+-|[\s_]*-[\s_]*(?=\d|R?\$))"
+    r"|[\s_]*-[\s_]*C[\s_]*-[\s_]*(?=\d|R?\$)"
+    r"|[\s_]*-[\s_]*C[\s_]*$", re.IGNORECASE)
 RE_DIGITS_ONLY = re.compile(r"[^\d]")
 RE_DOC_NUMBER  = re.compile(
     r"\b(?:nf|nfe|nfs|nfse|cte|ct-e|bol)\s*[:\s]?\s*(\d{3,10})\b",

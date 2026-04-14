@@ -245,8 +245,11 @@ _CONTENT_TYPE_KW: dict[str, list[str]] = {
                       "tipo ted", "transferencia entre bancos"],
     "transferencia": ["comprovante de transferencia", "transferencia realizada",
                       "transferencia entre contas", "dados da conta debitada"],
-    "gnre":          ["guia nacional de recolhimento", "gnre", "receita estadual",
-                      "sefaz", "codigo de receita gnre"],
+    # Nota: keywords de gnre precisam ser específicos o suficiente para não capturar
+    # comprovantes bancários que apenas citam "GNRE ONLINE" na descrição do pagamento.
+    # "guia nacional de recolhimento" e "uf favorecida" são exclusivos do doc original.
+    "gnre":          ["guia nacional de recolhimento", "uf favorecida",
+                      "codigo de receita gnre", "receita estadual gnre"],
     "boleto_pago":   ["comprovante de pagamento de boleto", "boleto pago",
                       "codigo de barras", "nosso numero", "linha digitavel"],
 }
@@ -255,12 +258,13 @@ def detect_content_type(text: str) -> str | None:
     """
     Detecta o tipo especifico de pagamento pelo conteudo do PDF.
     Retorna: 'pix', 'ted', 'transferencia', 'gnre', 'boleto_pago', ou None.
-    Prioridade: tipos mais especificos primeiro.
+    Prioridade: gnre antes de pix (GNRE menciona QR Code PIX mas nao é comprovante PIX).
     """
     if not text:
         return None
-    for ctype in ("pix", "ted", "gnre", "boleto_pago", "transferencia"):
-        if any(kw in text for kw in _CONTENT_TYPE_KW[ctype]):
+    tl = text.lower()
+    for ctype in ("gnre", "pix", "ted", "boleto_pago", "transferencia"):
+        if any(kw in tl for kw in _CONTENT_TYPE_KW[ctype]):
             return ctype
     return None
 
@@ -282,6 +286,38 @@ def extract_value_secondary(text: str) -> tuple[str | None, str | None]:
         return None, None
     num = m.group(1).strip()
     return "$ " + num, normalize_value(num)
+
+
+def extract_gnre_total(text: str) -> tuple[str | None, str | None]:
+    """
+    Extrai o 'Total a Recolher' da GNRE.
+
+    O layout da GNRE separa rótulos e valores em colunas distintas, então
+    "Total a Recolher" nunca fica adjacente ao seu valor no texto extraído.
+    Como o Total = Principal + Juros + Multa + Atualização, ele é sempre o
+    maior valor monetário do documento — estratégia usada aqui.
+
+    Fallback: regex adjacente para layouts onde o texto sai concatenado.
+    """
+    import re as _re
+    # Fallback: regex adjacente (layouts onde o valor fica junto do rótulo)
+    m = _re.search(
+        r"total\s+a\s+recolher\s*[:\-]?\s*R?\$\s*([\d.,]+)",
+        text, _re.IGNORECASE
+    )
+    if m:
+        num = m.group(1).strip()
+        return "R$ " + num, normalize_value(num)
+
+    # Estratégia principal: maior R$ do documento = Total a Recolher
+    vals = [(normalize_value(mv.group(1)), mv.group(1).strip())
+            for mv in RE_VALUE.finditer(text)
+            if mv.group(1).strip()]
+    vals = [(d, r) for d, r in vals if d]
+    if not vals:
+        return None, None
+    digits, raw = max(vals, key=lambda x: int(x[0]))
+    return "R$ " + raw, digits
 
 
 def extract_all_values(text: str) -> list[str]:
@@ -583,6 +619,15 @@ def collect_all(
         doc.content_type = detect_content_type(doc.content)
         # Pagamentos diretos (PIX/TED/transferencia) nao precisam de boleto
         doc.is_direct    = doc.content_type in ("pix", "ted", "transferencia")
+
+        # v1.7.0 — GNRE: substitui value_digits pelo "Total a Recolher"
+        # O valor principal da GNRE nao inclui juros/multa, mas o comprovante
+        # bancario registra o valor pago (total) como "Valor principal".
+        # Sem esse override os dois docs ficam com valores diferentes e nao agrupam.
+        if doc.content_type == "gnre" and doc.content:
+            _gnre_raw, _gnre_digits = extract_gnre_total(doc.content)
+            if _gnre_digits:
+                doc.value_raw, doc.value_digits = _gnre_raw, _gnre_digits
 
         # v1.6.0 — classificação híbrida: regras + ML
         # Prioridade: sufixo -C no nome > segmento do nome > ML sobre conteúdo
