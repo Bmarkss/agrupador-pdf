@@ -321,7 +321,8 @@ class App(_BaseApp):
 
     # ── Resumo pos-processamento ────────────────────────────────────────────────
 
-    def _show_summary(self, ok, warn, err, conf, dst):
+    def _show_summary(self, ok, warn, err, conf, dst,
+                      resultados: list | None = None):
         def _do():
             for w in self._summary_frame.winfo_children():
                 w.destroy()
@@ -335,6 +336,7 @@ class App(_BaseApp):
                      font=FONT_LABEL_S, bg=CARD, fg=MUTED).pack(
                          anchor="w", pady=(0, SP_8))
 
+            # Contadores
             grid = tk.Frame(inn, bg=CARD)
             grid.pack(fill="x", pady=(0, SP_10))
 
@@ -355,8 +357,9 @@ class App(_BaseApp):
                          font=FONT_LABEL_S, bg=bgc, fg=fgc,
                          pady=(0, SP_6)).pack()
 
+            # Botões abrir pasta
             btn_f = tk.Frame(inn, bg=CARD)
-            btn_f.pack(fill="x")
+            btn_f.pack(fill="x", pady=(0, SP_10))
 
             agrupados_dir = os.path.join(dst, "AGRUPADOS")
             conferir_dir  = os.path.join(dst, "CONFERIR")
@@ -373,6 +376,82 @@ class App(_BaseApp):
                            lambda p=conferir_dir: os.startfile(p),
                            bg=MUTED, fg=SURFACE, font=FONT_BODY,
                            padx=SP_14, pady=5, parent_bg=CARD).pack(side="left")
+
+            # ── Painel de feedback por grupo ───────────────────────────────
+            if resultados:
+                tk.Frame(inn, bg=BORDER2, height=2).pack(fill="x",
+                                                          pady=(SP_8, SP_6))
+                tk.Label(inn,
+                         text="FEEDBACK  —  marque agrupamentos incorretos",
+                         font=FONT_LABEL_S, bg=CARD, fg=MUTED).pack(
+                             anchor="w", pady=(0, SP_6))
+
+                fb_scroll_f = tk.Frame(inn, bg=CARD)
+                fb_scroll_f.pack(fill="x")
+
+                for gid, msg, gid_id in resultados:
+                    row = tk.Frame(fb_scroll_f, bg=ELEV_1,
+                                   highlightbackground=BORDER2,
+                                   highlightthickness=1)
+                    row.pack(fill="x", pady=(0, SP_4))
+
+                    # Símbolo + nome do grupo
+                    sym = chr(10004) if (chr(10004) in msg or "OK" in msg) else (
+                          chr(9888) if (chr(9888) in msg or "REVISAR" in msg) else chr(10008))
+                    sym_clr = SUCCESS if sym == chr(10004) else (
+                              WARN if sym == chr(9888) else DANGER)
+
+                    lbl_f = tk.Frame(row, bg=ELEV_1)
+                    lbl_f.pack(side="left", fill="x", expand=True,
+                               padx=SP_8, pady=SP_4)
+
+                    tk.Label(lbl_f, text=sym, font=FONT_BADGE,
+                             bg=ELEV_1, fg=sym_clr).pack(side="left")
+                    disp = gid[:44] + "…" if len(gid) > 44 else gid
+                    tk.Label(lbl_f, text=f"  {disp}",
+                             font=FONT_BODY_S, bg=ELEV_1, fg=FG,
+                             anchor="w").pack(side="left")
+
+                    # Botões ✔ Correto / ✗ Incorreto
+                    fb_btns = tk.Frame(row, bg=ELEV_1)
+                    fb_btns.pack(side="right", padx=SP_6, pady=SP_4)
+
+                    status_lbl = tk.Label(fb_btns, text="",
+                                          font=FONT_HINT, bg=ELEV_1, fg=MUTED,
+                                          width=8)
+                    status_lbl.pack(side="right", padx=(SP_4, 0))
+
+                    def _on_ok(gid_id=gid_id, lbl=status_lbl, r=row):
+                        if gid_id:
+                            try:
+                                from ..feedback_store import record_acceptance
+                                record_acceptance(gid_id, True)
+                            except Exception: pass
+                        lbl.config(text="Correto", fg=SUCCESS)
+                        r.config(highlightbackground=SUCCESS,
+                                 highlightthickness=2)
+
+                    def _on_err(gid_id=gid_id, lbl=status_lbl, r=row):
+                        if gid_id:
+                            try:
+                                from ..feedback_store import (
+                                    record_acceptance, update_weights_from_feedback)
+                                record_acceptance(gid_id, False)
+                                update_weights_from_feedback()
+                            except Exception: pass
+                        lbl.config(text="Incorreto", fg=DANGER)
+                        r.config(highlightbackground=DANGER,
+                                 highlightthickness=2)
+
+                    FlatButton(fb_btns, "Incorreto", _on_err,
+                               bg=ELEV_1, fg=DANGER, font=FONT_BODY_S,
+                               padx=SP_8, pady=3, parent_bg=ELEV_1).pack(
+                                   side="right", padx=(SP_4, 0))
+
+                    FlatButton(fb_btns, "Correto", _on_ok,
+                               accent=True, font=FONT_BODY_S,
+                               padx=SP_8, pady=3, parent_bg=ELEV_1).pack(
+                                   side="right")
 
             if not self._summary_shown:
                 self._summary_frame.pack(fill="x", pady=(0, SP_10),
@@ -488,6 +567,7 @@ class App(_BaseApp):
     def _worker(self, src, dst):
         log_cb = self._make_log_cb()
         ok = warn = err = 0
+        resultados: list[tuple[str, str, int | None]] = []  # (gid, msg, grouping_id)
 
         try:
             groups, unclassified = scan_folder(
@@ -501,7 +581,7 @@ class App(_BaseApp):
             total = len(groups)
             if total == 0:
                 self._log("\n  Nenhum grupo formado.", MUTED)
-                self._show_summary(0, 0, 0, len(unclassified), dst)
+                self._show_summary(0, 0, 0, len(unclassified), dst, [])
                 return
 
             def _init():
@@ -517,7 +597,7 @@ class App(_BaseApp):
                 short = gid[:54] + "..." if len(gid) > 54 else gid
                 self._set_current(f"Mesclando: {short}")
 
-                msg  = merge_group(gid, files, dst)
+                msg, grouping_id = merge_group(gid, files, dst)
                 disp = gid[:48] + "..." if len(gid) > 48 else gid
 
                 _sm  = re.search(r'\[([*!+])?\s*(\d+)%\]', msg)
@@ -534,6 +614,8 @@ class App(_BaseApp):
                     clr = WARN if (_pct is None or _pct >= 65) else DANGER
                     log_cb(f"  {i:>2}/{total}   {msg.replace(gid, disp)}", clr)
                     warn += 1
+
+                resultados.append((gid, msg, grouping_id))
 
                 pct = int(i / total * 100)
                 self.after(0, lambda v=i, p=pct: (
@@ -565,7 +647,7 @@ class App(_BaseApp):
             log_cb(f"\n  {'─'*48}", SUBTLE)
             log_cb(f"  OK {ok}   Revisar {warn}   Erros {err}   Conferir {conf_count}   ({total_str})", FG)
 
-            self._show_summary(ok, warn, err, conf_count, dst)
+            self._show_summary(ok, warn, err, conf_count, dst, resultados)
             self._save_last_folders(src, dst)
 
             if self.open_after.get() and ok > 0:

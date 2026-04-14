@@ -14,7 +14,7 @@ from .models  import DocInfo
 from .extractor import collect_all
 from .grouper   import build_groups
 from .scorer         import group_confidence, confidence_score, score_to_symbol, score_to_label, SCORE_GREEN, SCORE_YELLOW
-from .feedback_store  import record_grouping
+from .feedback_store  import record_grouping, record_acceptance
 from .graph_resolver  import resolve_with_graph, find_orphan_matches
 
 
@@ -54,13 +54,12 @@ def _size_kb(path):
     except Exception: return 0
 
 
-def merge_group(group_id: str, docs: list[DocInfo], output_folder: str) -> str:
+def merge_group(group_id: str, docs: list[DocInfo], output_folder: str) -> tuple[str, int | None]:
     """
-    Merge na ordem: comprovante -> boleto -> nota.
+    Merge na ordem: comprovante -> gnre -> boleto -> nota.
+    Retorna (msg, grouping_id) — grouping_id permite registrar feedback posterior.
 
-    v1.4.0 — Smart ✔/⚠:
-      ✔  grupo tem comprovante E pelo menos boleto ou nota
-      ⚠  suspeito: falta comprovante, ou so tem 1 tipo, ou erros
+    v1.6.4: retorna tuple (str, int|None) em vez de só str.
     """
     writer = PdfWriter()
     errors: list[str] = []
@@ -87,7 +86,7 @@ def merge_group(group_id: str, docs: list[DocInfo], output_folder: str) -> str:
             errors.append(f"{doc.fname}: {e}")
 
     if not writer.pages:
-        return f"\u2718 {group_id}: nenhuma pagina gerada"
+        return f"\u2718 {group_id}: nenhuma pagina gerada", None
 
     agrupados = os.path.join(output_folder, "AGRUPADOS")
     os.makedirs(agrupados, exist_ok=True)
@@ -97,7 +96,7 @@ def merge_group(group_id: str, docs: list[DocInfo], output_folder: str) -> str:
     try:
         with open(out_path, "wb") as f: writer.write(f)
     except Exception as e:
-        return f"\u2718 {group_id}: erro ao salvar — {e}"
+        return f"\u2718 {group_id}: erro ao salvar — {e}", None
 
     size_out = _size_kb(out_path)
 
@@ -118,27 +117,32 @@ def merge_group(group_id: str, docs: list[DocInfo], output_folder: str) -> str:
     else:
         size_tag = ""
 
-    # ── Score de confiança calibrado (v1.5.0) ────────────────────────────────
     extra_s = f" +{len(untyped)} sem tipo" if untyped else ""
 
     if errors:
-        return f"\u26a0 {group_id}: erros em {'; '.join(errors)}"
+        return f"\u26a0 {group_id}: erros em {'; '.join(errors)}", None
 
     score, det = group_confidence(docs)
     sym   = score_to_symbol(score)
     label = score_to_label(score)
 
-    # Contexto adicional: tipos presentes
     tipos_str = "+".join(t[0].upper() for t in used_types) if used_types else "?"
 
-    # Registra grupos verdes como feedback positivo (active learning)
-    if score >= SCORE_GREEN:
-        try:
-            record_grouping(group_id, [d.doc_type for d in docs if d.doc_type], score, det)
-        except Exception:
-            pass
+    # Registra agrupamento para feedback (todos os grupos, nao so verdes)
+    grouping_id: int | None = None
+    try:
+        grouping_id = record_grouping(
+            group_id,
+            [d.doc_type for d in docs if d.doc_type],
+            score, det
+        )
+        # Auto-aceita grupos de alta confianca
+        if score >= SCORE_GREEN and grouping_id:
+            record_acceptance(grouping_id, True)
+    except Exception:
+        pass
 
-    return f"{sym} {group_id}  [{label}] ({tipos_str}){extra_s}{size_tag}"
+    return f"{sym} {group_id}  [{label}] ({tipos_str}){extra_s}{size_tag}", grouping_id
 
 
 def scan_folder(folder, log_callback=None, cancel_flag=None):
