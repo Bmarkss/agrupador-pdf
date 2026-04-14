@@ -1,5 +1,6 @@
 """
 config.py — Design System, constantes globais e regex compilados.
+v1.6.2 — Neobrutalista: Branco / Cinza / Azul Capri
 """
 import os, sys, re
 
@@ -31,19 +32,19 @@ if sys.platform=="win32":
         k["startupinfo"]=si; _Po(self,*a,**k)
     _sp.Popen.__init__=_pnw
 
-# ── Versao ────────────────────────────────────────────────────────────────────
+# ── Versao ─────────────────────────────────────────────────────────────────────
 VERSION        = "1.6.2"
 ORDER_MERGE    = ["comprovante","boleto","nota"]
 MIN_TEXT_CHARS = 80
 NF_KEY_LEN     = 44
 
-# ── SimHash ───────────────────────────────────────────────────────────────────
-SIMHASH_BITS          = 64   # bits do fingerprint
-SIMHASH_DUP_THRESHOLD = 0    # Hamming == 0 = conteudo identico (duplicata exata)
-SIMHASH_NEAR_THRESHOLD = 3    # Hamming <= 3 + mesmo grupo/valor = quase-duplicata
-SIMHASH_SIM_THRESHOLD  = 14   # Hamming <= 14 = muito similar (referencia futura)
+# ── SimHash ────────────────────────────────────────────────────────────────────
+SIMHASH_BITS           = 64
+SIMHASH_DUP_THRESHOLD  = 0
+SIMHASH_NEAR_THRESHOLD = 3
+SIMHASH_SIM_THRESHOLD  = 14
 
-# ── Vocabulario ───────────────────────────────────────────────────────────────
+# ── Vocabulario ────────────────────────────────────────────────────────────────
 TYPE_GROUPS: dict[str,list[str]] = {
     "comprovante": ["comp","comprov","comprovante","pag","pago","pagamento",
                     "pix","ted","transf","transferencia","qit","autent"],
@@ -53,7 +54,7 @@ TYPE_GROUPS: dict[str,list[str]] = {
                     "faturamento","cte","ct-e","cte-e","dacte","dacte-e",
                     "danfe","nota","fiscal","rpa","recibo_fiscal","serv",
                     "servico","relatorio","relacao"],
-    "gnre":        ["gnre","estado"],   # "ESTADO DE XX" → sempre GNRE
+    "gnre":        ["gnre","estado"],
 }
 SEG_MAP: dict[str,str] = {w:t for t,ws in TYPE_GROUPS.items() for w in ws}
 
@@ -73,31 +74,26 @@ FUNC_DESCRIPTORS: frozenset = frozenset({
     "plano","adiantamento","abono","bonus","aluguel","telefonia","pedagio","reembolso",
 })
 
-# Sufixos legais que NAO distinguem fornecedores — removidos antes do fuzzy match
 LEGAL_SUFFIXES: frozenset = frozenset({
     "ltda","sa","s/a","me","eireli","epp","ss","comercio","servicos",
     "industria","transportes","logistica","express","solucoes","e","do","da","de",
 })
 
-# ── Regex ─────────────────────────────────────────────────────────────────────
+# ── Regex ──────────────────────────────────────────────────────────────────────
 RE_VALUE      = re.compile(r"R?\$\s*([\d.,]+)", re.IGNORECASE)
 RE_VALUE_SEC  = re.compile(r"\(R?\$\s*([\d.,]+)\)", re.IGNORECASE)
 RE_PERIOD     = re.compile(
     r"(janeiro|fevereiro|mar[cç]o|abril|maio|junho|"
     r"julho|agosto|setembro|outubro|novembro|dezembro)[.\s]?(\d{2,4})"
     r"|(?<!\d)(0?[1-9]|1[0-2])/(20\d{2}|\d{2})(?!\d)", re.IGNORECASE)
-
-# Datas de vencimento no nome: VENCIMENTO DD-MM-YYYY ou VENCIMNETO (typo)
 RE_VENCIMENTO = re.compile(
     r"\bvenc(?:imento|imneto|e)?\s*(\d{2})[-./](\d{2})[-./](\d{4})\b",
     re.IGNORECASE)
-
 RE_INSTALLMENT = re.compile(
     r"parc(?:ela)?\s*[:\s]?(\d{1,2})\s*(?:[/\-]\s*|de\s*)(\d{1,2})"
     r"|(\d{1,2})\s*/\s*(\d{1,2})\s*parc(?:ela)?"
     r"|(\d{1,2})[a\xaa]\s*(?:de\s*)?(\d{1,2})\s*parc(?:ela)?",
     re.IGNORECASE)
-
 RE_NF_KEY      = re.compile(r"\b(\d{44})\b")
 RE_CNPJ        = re.compile(
     r"\b(\d{2})[.\s]?(\d{3})[.\s]?(\d{3})[/\s]?(\d{4})[-\s]?(\d{2})\b")
@@ -116,22 +112,67 @@ RE_DOC_NUMBER  = re.compile(
     r"\b(?:nf|nfe|nfs|nfse|cte|ct-e|bol)\s*[:\s]?\s*(\d{3,10})\b",
     re.IGNORECASE)
 
-# ── Design System v1.6.2 — Dark Precision ────────────────────────────────────
-# Paleta: carvão profundo + marfim + laranja âmbar como único acento
-# Tipografia: Consolas mono para dados, Segoe UI Light para texto
-BG="#111418";SURFACE="#1a1e24";SURF2="#20252d";CARD="#1e232b";CARD2="#252b35"
-BORDER="#2e3542";BORDER2="#3a4455"
-ACC="#e8924a";ACC2="#d07a35";ACC3="#b86420";ACC_GLOW="#f0a060";ACCDIM="#3a2410"
-FG="#e8e2d9";MUTED="#7a8494";SUBTLE="#4a5568"
-SUCCESS="#4caf7d";SUCCESS_BG="#0d2318";WARN="#e8b84a";WARN_BG="#241a08"
-DANGER="#e05555";DANGER_BG="#2a0e0e";INFO_BG="#131c28"
-ELEV_1="#232931";ELEV_2="#2a3040";ELEV_3="#313850"
-FONT_HERO=("Segoe UI Light",20);FONT_TITLE=("Segoe UI Semibold",11)
-FONT_HEADING=("Segoe UI",10);FONT_LABEL=("Segoe UI",8)
-FONT_LABEL_S=("Segoe UI",7);FONT_BODY=("Segoe UI",9)
-FONT_BODY_S=("Segoe UI",8);FONT_HINT=("Segoe UI",7);FONT_MONO=("Consolas",9)
-FONT_BADGE=("Consolas",9);FONT_NUM=("Segoe UI Light",24)
-SP_2=2;SP_4=4;SP_6=6;SP_8=8;SP_10=10
-SP_12=12;SP_14=14;SP_16=16;SP_20=20;SP_24=24;SP_32=32
-HEIGHT_INPUT=34;HEIGHT_BTN_SM=34;HEIGHT_BTN_LG=48;HEIGHT_PROG=60
-R_SM=4;R_MD=6;R_LG=10
+# ── Design System v1.6.2 — Neobrutalista: Branco / Cinza / Azul Capri ─────────
+# Sem preto como cor de fundo. Bordas e sombras em cinza escuro.
+# Acento unico: Azul Capri (#00BFFF).
+
+# Backgrounds
+BG       = "#F4F4F4"   # cinza muito claro — fundo geral
+SURFACE  = "#FFFFFF"   # branco puro — superficies principais
+SURF2    = "#EEEEEE"   # cinza leve — faixas secundarias
+CARD     = "#FFFFFF"   # branco — cards
+CARD2    = "#F0F0F0"   # cinza clarinho — cards internos / log
+
+# Bordas
+BORDER   = "#999999"   # cinza medio — borda padrao
+BORDER2  = "#CCCCCC"   # cinza claro — borda suave
+
+# Acento — Azul Capri
+ACC      = "#00BFFF"   # capri principal
+ACC2     = "#009ACC"   # capri escuro (hover)
+ACC3     = "#007AAA"   # capri mais escuro
+ACC_GLOW = "#33CFFF"   # capri claro (cursor)
+ACCDIM   = "#E0F7FF"   # capri muito claro (fundo selecionado)
+
+# Texto
+FG       = "#222222"   # cinza muito escuro — texto principal
+MUTED    = "#666666"   # cinza medio — texto secundario
+SUBTLE   = "#999999"   # cinza claro — dicas / labels
+
+# Semanticos
+SUCCESS    = "#007A99"   # capri escuro — sucesso
+SUCCESS_BG = "#E0F7FF"   # capri muito claro — fundo sucesso
+WARN       = "#555555"   # cinza escuro — aviso (sem amarelo)
+WARN_BG    = "#E8E8E8"   # cinza claro — fundo aviso
+DANGER     = "#CC3333"   # vermelho moderado — erro
+DANGER_BG  = "#FFE8E8"   # vermelho muito claro — fundo erro
+INFO_BG    = "#E0F7FF"   # capri muito claro — info
+
+# Elevacao (botoes, cards)
+ELEV_1   = "#EBEBEB"
+ELEV_2   = "#E2E2E2"
+ELEV_3   = "#D8D8D8"
+
+# Tipografia — Segoe UI para interface
+FONT_HERO    = ("Segoe UI",    18, "bold")
+FONT_TITLE   = ("Segoe UI",    11, "bold")
+FONT_HEADING = ("Segoe UI",    10)
+FONT_LABEL   = ("Segoe UI",     8, "bold")
+FONT_LABEL_S = ("Segoe UI",     7, "bold")
+FONT_BODY    = ("Segoe UI",     9)
+FONT_BODY_S  = ("Segoe UI",     8)
+FONT_HINT    = ("Segoe UI",     7)
+FONT_MONO    = ("Consolas",     9)
+FONT_BADGE   = ("Segoe UI",     9, "bold")
+FONT_NUM     = ("Segoe UI",    24, "bold")
+
+# Espacamento
+SP_2=2; SP_4=4; SP_6=6; SP_8=8; SP_10=10
+SP_12=12; SP_14=14; SP_16=16; SP_20=20; SP_24=24; SP_32=32
+
+# Dimensoes
+HEIGHT_INPUT  = 34
+HEIGHT_BTN_SM = 34
+HEIGHT_BTN_LG = 48
+HEIGHT_PROG   = 60
+R_SM=0; R_MD=0; R_LG=0   # Neobrutalista: zero arredondamento

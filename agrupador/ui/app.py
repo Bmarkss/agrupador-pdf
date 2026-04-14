@@ -1,14 +1,8 @@
 """
 ui/app.py — AgrupadorPDF v1.6.2
-Design System: Dark Precision
+Design System: Neobrutalista — Branco / Cinza / Azul Capri
 """
-
-import os
-import json
-import re
-import shutil
-import threading
-import webbrowser
+import os, json, re, shutil, threading, webbrowser
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from urllib.request import urlopen
@@ -68,88 +62,71 @@ class App(_BaseApp):
         self._load_last_folders()
         self.after(3000, self._checar_updates)
 
-    # ── Layout ────────────────────────────────────────────────────────────────
+    # ── Layout ─────────────────────────────────────────────────────────────────
 
     def _build_ui(self):
         self._build_header()
         self._build_footer()
         self._build_body()
 
-    # ── Header ────────────────────────────────────────────────────────────────
+    # ── Header ─────────────────────────────────────────────────────────────────
 
     def _build_header(self):
-        hdr = tk.Frame(self, bg=SURFACE)
+        hdr = tk.Frame(self, bg=MUTED)   # cinza escuro no topo
         hdr.pack(fill="x")
 
-        # Linha âmbar fina no topo
-        tk.Frame(hdr, bg=ACC, height=2).pack(fill="x")
+        inner = tk.Frame(hdr, bg=MUTED)
+        inner.pack(fill="x", padx=SP_20, pady=(SP_12, SP_10))
 
-        inner = tk.Frame(hdr, bg=SURFACE)
-        inner.pack(fill="x", padx=SP_24, pady=(SP_14, SP_12))
-
-        # ícone + texto
-        left = tk.Frame(inner, bg=SURFACE)
+        left = tk.Frame(inner, bg=MUTED)
         left.pack(side="left")
 
-        self._build_icon(left)
+        # Icone simples (quadrado capri com "A")
+        icon_f = tk.Frame(left, bg=ACC, width=36, height=36)
+        icon_f.pack(side="left")
+        icon_f.pack_propagate(False)
+        tk.Label(icon_f, text="A", font=("Segoe UI", 16, "bold"),
+                 bg=ACC, fg=SURFACE).pack(expand=True)
 
-        text_f = tk.Frame(left, bg=SURFACE)
-        text_f.pack(side="left", padx=(SP_14, 0))
+        text_f = tk.Frame(left, bg=MUTED)
+        text_f.pack(side="left", padx=(SP_12, 0))
 
         tk.Label(text_f, text="AgrupadorPDF",
-                 font=FONT_HERO, bg=SURFACE, fg=FG).pack(anchor="w")
+                 font=FONT_HERO, bg=MUTED, fg=SURFACE).pack(anchor="w")
         tk.Label(text_f,
-                 text="agrupamento automático de documentos fiscais",
-                 font=FONT_HINT, bg=SURFACE, fg=MUTED).pack(anchor="w", pady=(2, 0))
+                 text="agrupamento automatico de documentos fiscais",
+                 font=FONT_HINT, bg=MUTED, fg=BORDER).pack(anchor="w", pady=(2, 0))
 
-        # badge versão + info
-        right = tk.Frame(inner, bg=SURFACE)
+        right = tk.Frame(inner, bg=MUTED)
         right.pack(side="right", anchor="center")
 
-        badge = tk.Frame(right, bg=ELEV_1,
-                         highlightbackground=BORDER, highlightthickness=1)
-        badge.pack(side="right", padx=(SP_10, 0))
-        tk.Label(badge, text=f"v{VERSION}",
-                 font=FONT_BADGE, bg=ELEV_1, fg=ACC,
-                 padx=SP_8, pady=SP_4).pack()
+        # Badge versao
+        badge_f = tk.Frame(right, bg=ACC)
+        badge_f.pack(side="right", padx=(SP_10, 0))
+        tk.Label(badge_f, text=f"v{VERSION}",
+                 font=FONT_BADGE, bg=ACC, fg=SURFACE,
+                 padx=SP_10, pady=SP_4).pack()
 
-        info = tk.Label(right, text="ⓘ",
-                        font=("Segoe UI", 14), bg=SURFACE, fg=MUTED,
+        # Icone info com tooltip
+        info = tk.Label(right, text="i",
+                        font=("Segoe UI", 11, "bold"), bg=MUTED, fg=BORDER2,
                         cursor="hand2")
         info.pack(side="right")
         Tooltip(info)
 
-        # Divider inferior
-        tk.Frame(self, bg=BORDER, height=1).pack(fill="x")
+        # Linha capri fina na base do header
+        tk.Frame(self, bg=ACC, height=3).pack(fill="x")
 
-    def _build_icon(self, parent):
-        """Ícone de três PDFs sobrepostos — paleta âmbar/carvão."""
-        cv = tk.Canvas(parent, width=48, height=40,
-                       bg=SURFACE, highlightthickness=0)
-        # Doc 3 (fundo) — cor mais escura
-        cv.create_rectangle(18, 6, 34, 37, fill=ELEV_1, outline=BORDER)
-        cv.create_rectangle(27, 6, 34, 13, fill=BORDER, outline="")
-        # Doc 2 (meio) — âmbar dim
-        cv.create_rectangle(10, 3, 26, 35, fill=ACCDIM, outline=ACC3)
-        cv.create_rectangle(19, 3, 26, 10, fill=ACC3, outline="")
-        # Doc 1 (frente) — âmbar
-        cv.create_rectangle(2, 0, 18, 33, fill=ACC, outline=ACC2)
-        cv.create_rectangle(11, 0, 18, 7,  fill=ACC2, outline="")
-        cv.create_polygon([11,0, 18,0, 18,7], fill=ACC_GLOW, outline="")
-        for y in [13, 18, 23]:
-            cv.create_rectangle(5, y, 15, y+2, fill=ACC2, outline="")
-        cv.pack(side="left")
-
-    # ── Footer ────────────────────────────────────────────────────────────────
+    # ── Footer ─────────────────────────────────────────────────────────────────
 
     def _build_footer(self):
-        ft = tk.Frame(self, bg=SURFACE)
+        ft = tk.Frame(self, bg=MUTED)
         ft.pack(fill="x", side="bottom")
-        tk.Frame(ft, bg=BORDER, height=1).pack(fill="x")
+        tk.Frame(ft, bg=BORDER2, height=2).pack(fill="x")
         tk.Label(ft, text=f"AgrupadorPDF  v{VERSION}",
-                 font=FONT_HINT, bg=SURFACE, fg=SUBTLE, pady=5).pack()
+                 font=FONT_HINT, bg=MUTED, fg=BORDER, pady=5).pack()
 
-    # ── Body ──────────────────────────────────────────────────────────────────
+    # ── Body ───────────────────────────────────────────────────────────────────
 
     def _build_body(self):
         body = tk.Frame(self, bg=BG)
@@ -165,11 +142,11 @@ class App(_BaseApp):
             show_dnd_hint=True, parent_bg=BG)
         self._row_input.pack(fill="x", pady=(0, SP_4))
 
-        # contador de PDFs
+        # Contador de PDFs
         count_f = tk.Frame(body, bg=BG)
-        count_f.pack(fill="x", pady=(0, SP_6))
+        count_f.pack(fill="x", pady=(0, SP_8))
         self._pdf_count_label = tk.Label(
-            count_f, text="", font=FONT_HINT, bg=BG, fg=ACC)
+            count_f, text="", font=FONT_HINT, bg=BG, fg=ACC2)
         self._pdf_count_label.pack(side="right")
 
         # Pasta de destino
@@ -182,143 +159,177 @@ class App(_BaseApp):
         self._setup_dnd()
 
         # Divisor
-        tk.Frame(body, bg=BORDER, height=1).pack(fill="x", pady=(0, SP_12))
+        tk.Frame(body, bg=BORDER2, height=2).pack(fill="x", pady=(0, SP_12))
 
-        # Opções inline
-        opts = tk.Frame(body, bg=BG)
-        opts.pack(fill="x", pady=(0, SP_14))
+        # ── Opcoes inline ──────────────────────────────────────────────────
         self.open_after     = tk.BooleanVar(value=True)
         self.copy_unmatched = tk.BooleanVar(value=True)
         self.verbose_mode   = tk.BooleanVar(value=False)
 
-        for text, var in [
-            ("Abrir ao finalizar",          self.open_after),
-            ("Salvar CONFERIR",             self.copy_unmatched),
-            ("Log detalhado",               self.verbose_mode),
-        ]:
-            cb = tk.Checkbutton(opts, text=text, variable=var,
-                                font=FONT_BODY, bg=BG, fg=MUTED,
-                                selectcolor=ACCDIM,
-                                activebackground=BG, activeforeground=ACC,
-                                cursor="hand2",
-                                disabledforeground=SUBTLE)
-            cb.pack(side="left", padx=(0, SP_20))
+        opts_frame = tk.Frame(body, bg=BORDER, padx=2, pady=2)
+        opts_frame.pack(fill="x", pady=(0, SP_14))
 
-        # Botão principal — AGRUPAR
+        opts_inner = tk.Frame(opts_frame, bg=BG)
+        opts_inner.pack(fill="x")
+
+        for i, (text, sub, var) in enumerate([
+            ("Abrir ao finalizar", "Abre pasta AGRUPADOS", self.open_after),
+            ("Salvar CONFERIR",    "Copia sem comprovante", self.copy_unmatched),
+            ("Log detalhado",      "Mostra todos os passos", self.verbose_mode),
+        ]):
+            if i > 0:
+                tk.Frame(opts_inner, bg=BORDER, width=2).pack(side="left", fill="y")
+            self._make_checkbox(opts_inner, text, sub, var)
+
+        # ── Botao principal ────────────────────────────────────────────────
         self._btn_run = FlatButton(
-            body, "▶   AGRUPAR PDFs", self._run,
+            body, "  AGRUPAR PDFs", self._run,
             accent=True, font=FONT_TITLE,
-            padx=32, pady=SP_14, radius=R_SM,
+            padx=32, pady=SP_14,
             full_width=True, parent_bg=BG)
         self._btn_run.pack(fill="x", pady=(0, SP_8))
 
-        # Faixa secundária
-        sec = tk.Frame(body, bg=SURF2,
-                       highlightbackground=BORDER, highlightthickness=1)
-        sec.pack(fill="x", pady=(0, SP_10))
-        sec_inner = tk.Frame(sec, bg=SURF2, padx=SP_8, pady=SP_6)
+        # ── Faixa secundaria ───────────────────────────────────────────────
+        sec = tk.Frame(body, bg=ELEV_1,
+                       highlightbackground=BORDER2, highlightthickness=2)
+        sec.pack(fill="x", pady=(0, SP_12))
+        sec_inner = tk.Frame(sec, bg=ELEV_1, padx=SP_8, pady=SP_6)
         sec_inner.pack(fill="x")
 
         self.btn_export = FlatButton(
-            sec_inner, "↓  Exportar log", self._export_log,
-            bg=SURF2, fg=MUTED, font=FONT_BODY,
-            padx=SP_12, pady=4, radius=R_SM, parent_bg=SURF2)
+            sec_inner, "Exportar Log", self._export_log,
+            bg=ELEV_1, fg=MUTED, font=FONT_BODY,
+            padx=SP_12, pady=4, parent_bg=ELEV_1)
         self.btn_export.pack(side="left")
 
         self.btn_cancel = FlatButton(
-            sec_inner, "✕  Cancelar", self._cancel,
-            danger=True, font=FONT_BODY,
-            padx=SP_12, pady=4, radius=R_SM, parent_bg=SURF2)
+            sec_inner, "Cancelar", self._cancel,
+            bg=MUTED, fg=SURFACE, font=FONT_BODY,
+            padx=SP_12, pady=4, parent_bg=ELEV_1)
         self.btn_cancel.pack(side="right")
         self.btn_cancel.configure(state="disabled")
 
-        # Card de progresso
-        prog_card = RoundCard(body, radius=R_MD, bg_card=CARD,
-                              bg_parent=BG, height=HEIGHT_PROG)
-        prog_card.pack(fill="x", pady=(0, SP_10))
-        inn = prog_card.inner
+        # ── Progresso ──────────────────────────────────────────────────────
+        prog_frame = tk.Frame(body, bg=BG)
+        prog_frame.pack(fill="x", pady=(0, SP_10))
 
-        top = tk.Frame(inn, bg=CARD)
-        top.pack(fill="x", pady=(0, SP_6))
-        tk.Label(top, text="PROGRESSO",
-                 font=FONT_LABEL_S, bg=CARD, fg=SUBTLE).pack(side="left")
-        self.progress_label = tk.Label(top, text="",
-                                       font=FONT_BADGE, bg=CARD, fg=ACC)
+        prog_hd = tk.Frame(prog_frame, bg=BG)
+        prog_hd.pack(fill="x", pady=(0, SP_4))
+        tk.Label(prog_hd, text="PROGRESSO",
+                 font=FONT_LABEL_S, bg=BG, fg=SUBTLE).pack(side="left")
+        self.progress_label = tk.Label(prog_hd, text="",
+                                       font=FONT_BADGE, bg=BG, fg=ACC2)
         self.progress_label.pack(side="right")
 
-        self.progress = ProgressBar(inn, height=4,
-                                    bg_fill=ACC, bg_parent=CARD, radius=2)
-        self.progress.pack(fill="x", pady=(0, SP_6))
+        self.progress = ProgressBar(prog_frame, height=10,
+                                    bg_fill=ACC, bg_parent=BG)
+        self.progress.pack(fill="x", pady=(0, SP_4))
 
-        self._current_label = tk.Label(inn, text="",
-                                       font=FONT_HINT, bg=CARD, fg=MUTED,
+        self._current_label = tk.Label(prog_frame, text="",
+                                       font=FONT_HINT, bg=BG, fg=MUTED,
                                        anchor="w")
         self._current_label.pack(fill="x")
 
-        # Placeholder para resumo
+        # Placeholder para o resumo
         self._summary_frame = tk.Frame(body, bg=BG)
         self._summary_shown = False
 
-        # Card de log
-        self._log_card = RoundCard(body, radius=R_MD, bg_card=CARD,
-                                   bg_parent=BG, accent_top=True, height=200)
+        # ── Log ────────────────────────────────────────────────────────────
+        self._log_card = tk.Frame(body, bg=MUTED, padx=2, pady=2)
         self._log_card.pack(fill="both", expand=True)
-        log_inn = self._log_card.inner
 
-        log_hdr = tk.Frame(log_inn, bg=CARD2)
+        log_wrap = tk.Frame(self._log_card, bg=CARD)
+        log_wrap.pack(fill="both", expand=True)
+
+        log_hdr = tk.Frame(log_wrap, bg=MUTED)
         log_hdr.pack(fill="x")
 
-        # Dot de status
         self._log_dot_cv = tk.Canvas(log_hdr, width=8, height=8,
-                                     bg=CARD2, highlightthickness=0)
-        self._log_dot_cv.create_oval(1, 1, 7, 7, fill=SUBTLE, outline="")
+                                     bg=MUTED, highlightthickness=0)
+        self._log_dot_cv.create_oval(1, 1, 7, 7, fill=BORDER2, outline="")
         self._log_dot_cv.pack(side="left", padx=(SP_10, SP_6), pady=SP_8)
-        self._log_dot = self._log_dot_cv  # compat
 
         tk.Label(log_hdr, text="LOG DE PROCESSAMENTO",
-                 font=FONT_LABEL_S, bg=CARD2, fg=MUTED, pady=6).pack(side="left")
+                 font=FONT_LABEL_S, bg=MUTED, fg=BORDER, pady=6).pack(side="left")
 
         self._verbose_badge = tk.Label(log_hdr, text="",
-                                       font=FONT_HINT, bg=CARD2, fg=ACC, pady=6)
+                                       font=FONT_HINT, bg=MUTED, fg=ACC, pady=6)
         self._verbose_badge.pack(side="right", padx=SP_10)
         self.verbose_mode.trace_add("write",
             lambda *_: self._verbose_badge.config(
                 text="DETALHADO" if self.verbose_mode.get() else ""))
 
-        tk.Frame(log_inn, bg=BORDER, height=1).pack(fill="x")
+        tk.Frame(log_wrap, bg=BORDER2, height=2).pack(fill="x")
 
-        self.log = tk.Text(log_inn,
-                           font=FONT_MONO,
-                           bg=CARD, fg=FG,
-                           insertbackground=ACC_GLOW,
+        self.log = tk.Text(log_wrap,
+                           font=FONT_MONO, bg=CARD2, fg=FG,
+                           insertbackground=ACC,
                            bd=0, relief="flat",
                            state="disabled", padx=SP_12, pady=SP_10,
                            selectbackground=ACCDIM, selectforeground=FG)
-        sc = ttk.Scrollbar(log_inn, command=self.log.yview)
+        sc = ttk.Scrollbar(log_wrap, command=self.log.yview)
         self.log.configure(yscrollcommand=sc.set)
         sc.pack(side="right", fill="y")
         self.log.pack(fill="both", expand=True)
 
-        # Tags de cor no log
-        self.log.tag_config("success",  foreground=SUCCESS)
-        self.log.tag_config("warn",     foreground=WARN)
-        self.log.tag_config("danger",   foreground=DANGER)
-        self.log.tag_config("muted",    foreground=MUTED)
-        self.log.tag_config("acc",      foreground=ACC)
-        self.log.tag_config("subtle",   foreground=SUBTLE)
+        self.log.tag_config("success", foreground=SUCCESS)
+        self.log.tag_config("warn",    foreground=WARN)
+        self.log.tag_config("danger",  foreground=DANGER)
+        self.log.tag_config("muted",   foreground=MUTED)
+        self.log.tag_config("acc",     foreground=ACC2)
+        self.log.tag_config("subtle",  foreground=SUBTLE)
 
-    # ── Resumo pós-processamento ──────────────────────────────────────────────
+    def _make_checkbox(self, parent, text, sub, var):
+        """Checkbox neobrutalista: quadrado capri quando marcado."""
+        frame = tk.Frame(parent, bg=BG, cursor="hand2")
+        frame.pack(side="left", fill="both", expand=True,
+                   padx=SP_10, pady=SP_8)
+
+        box_f = tk.Frame(frame, bg=BG)
+        box_f.pack(anchor="w")
+
+        # Box visual
+        box = tk.Canvas(box_f, width=14, height=14,
+                        bg=BG, highlightthickness=0)
+        box.pack(side="left", padx=(0, SP_6))
+
+        def draw_box(*_):
+            box.delete("all")
+            if var.get():
+                box.create_rectangle(0, 0, 13, 13, fill=ACC, outline=ACC2, width=2)
+                box.create_rectangle(3, 3, 10, 10, fill=SURFACE, outline="")
+            else:
+                box.create_rectangle(0, 0, 13, 13, fill=SURFACE,
+                                     outline=BORDER, width=2)
+
+        var.trace_add("write", lambda *_: draw_box())
+        draw_box()
+
+        lbl = tk.Label(box_f, text=text,
+                       font=FONT_BODY, bg=BG, fg=FG, cursor="hand2")
+        lbl.pack(side="left")
+
+        sub_lbl = tk.Label(frame, text=sub,
+                           font=FONT_HINT, bg=BG, fg=SUBTLE)
+        sub_lbl.pack(anchor="w", padx=(20, 0))
+
+        def toggle(_e=None):
+            var.set(not var.get())
+
+        for w in (frame, box_f, box, lbl, sub_lbl):
+            w.bind("<Button-1>", toggle)
+
+    # ── Resumo pos-processamento ────────────────────────────────────────────────
 
     def _show_summary(self, ok, warn, err, conf, dst):
         def _do():
             for w in self._summary_frame.winfo_children():
                 w.destroy()
 
-            card = AccentCard(self._summary_frame, bg_card=CARD,
-                              bg_parent=BG, padx=SP_14, pady=SP_10,
-                              accent_left=True)
+            card = tk.Frame(self._summary_frame, bg=BORDER, padx=2, pady=2)
             card.pack(fill="x")
-            inn = card.inner
+            inn = tk.Frame(card, bg=CARD, padx=SP_14, pady=SP_10)
+            inn.pack(fill="x")
 
             tk.Label(inn, text="RESULTADO",
                      font=FONT_LABEL_S, bg=CARD, fg=MUTED).pack(
@@ -331,13 +342,13 @@ class App(_BaseApp):
                 (str(ok),   "agrupados", SUCCESS_BG, SUCCESS),
                 (str(warn), "revisar",   WARN_BG,    WARN),
                 (str(err),  "erros",     DANGER_BG,  DANGER),
-                (str(conf), "conferir",  CARD2,      MUTED),
+                (str(conf), "conferir",  ELEV_1,     MUTED),
             ]):
                 grid.columnconfigure(col, weight=1)
                 c = tk.Frame(grid, bg=bgc,
-                             highlightbackground=BORDER, highlightthickness=1)
+                             highlightbackground=BORDER2, highlightthickness=2)
                 c.grid(row=0, column=col,
-                       padx=(0 if col==0 else SP_6, 0), sticky="nsew")
+                       padx=(0 if col == 0 else SP_6, 0), sticky="nsew")
                 tk.Label(c, text=count,
                          font=FONT_NUM, bg=bgc, fg=fgc, pady=SP_6).pack()
                 tk.Label(c, text=label,
@@ -347,22 +358,21 @@ class App(_BaseApp):
             btn_f = tk.Frame(inn, bg=CARD)
             btn_f.pack(fill="x")
 
-            agrupados = os.path.join(dst, "AGRUPADOS")
-            conferir  = os.path.join(dst, "CONFERIR")
+            agrupados_dir = os.path.join(dst, "AGRUPADOS")
+            conferir_dir  = os.path.join(dst, "CONFERIR")
 
-            if os.path.isdir(agrupados) and ok > 0:
-                FlatButton(btn_f, "↗  Abrir AGRUPADOS",
-                           lambda p=agrupados: os.startfile(p),
+            if os.path.isdir(agrupados_dir) and ok > 0:
+                FlatButton(btn_f, "Abrir AGRUPADOS",
+                           lambda p=agrupados_dir: os.startfile(p),
                            accent=True, font=FONT_BODY,
-                           padx=SP_14, pady=5, radius=R_SM,
-                           parent_bg=CARD).pack(side="left", padx=(0, SP_8))
+                           padx=SP_14, pady=5, parent_bg=CARD).pack(
+                               side="left", padx=(0, SP_8))
 
-            if os.path.isdir(conferir) and conf > 0:
-                FlatButton(btn_f, "↗  Abrir CONFERIR",
-                           lambda p=conferir: os.startfile(p),
-                           bg=WARN_BG, fg=WARN, font=FONT_BODY,
-                           padx=SP_14, pady=5, radius=R_SM,
-                           parent_bg=CARD).pack(side="left")
+            if os.path.isdir(conferir_dir) and conf > 0:
+                FlatButton(btn_f, "Abrir CONFERIR",
+                           lambda p=conferir_dir: os.startfile(p),
+                           bg=MUTED, fg=SURFACE, font=FONT_BODY,
+                           padx=SP_14, pady=5, parent_bg=CARD).pack(side="left")
 
             if not self._summary_shown:
                 self._summary_frame.pack(fill="x", pady=(0, SP_10),
@@ -376,16 +386,14 @@ class App(_BaseApp):
             self._summary_frame.pack_forget()
             self._summary_shown = False
 
-    # ── Log ──────────────────────────────────────────────────────────────────
+    # ── Log ────────────────────────────────────────────────────────────────────
 
     def _make_log_cb(self):
         verbose = self.verbose_mode.get()
         _always = (
-            "✔", "✘", "⚠", "↷",
-            "Fase", "-- Fase", "Escaneando",
-            "grupo(s)", "RESUMO", "─",
+            "OK", "REVISAR", "ERRO", "CONFERIR",
+            "Fase", "grupo(s)", "RESUMO",
             "PDFs lidos", "Grupos formados",
-            "Agrupados com", "Erros no", "conferencia",
             "AGRUPADOS", "CONFERIR", "cancelado",
         )
         def _cb(msg, color=FG):
@@ -411,7 +419,7 @@ class App(_BaseApp):
         self.log.delete("1.0", "end")
         self.log.configure(state="disabled")
 
-    # ── DnD ──────────────────────────────────────────────────────────────────
+    # ── DnD ────────────────────────────────────────────────────────────────────
 
     def _setup_dnd(self):
         if not _DND_OK: return
@@ -425,7 +433,7 @@ class App(_BaseApp):
         self._row_input.register_drop(_drop_input)
         self._row_output.register_drop(_drop_output)
 
-    # ── PDF count ─────────────────────────────────────────────────────────────
+    # ── PDF count ──────────────────────────────────────────────────────────────
 
     def _update_pdf_count(self, folder):
         try:
@@ -433,12 +441,12 @@ class App(_BaseApp):
                      if f.lower().endswith(".pdf")
                      and not f.upper().endswith("_AGRUPADO.PDF")])
             self._pdf_count_label.config(
-                text=f"{n} PDF{'s' if n!=1 else ''} encontrado{'s' if n!=1 else ''}"
+                text=f"{n} PDF{'s' if n != 1 else ''} encontrado{'s' if n != 1 else ''}"
                 if n > 0 else "")
         except Exception:
             self._pdf_count_label.config(text="")
 
-    # ── Seleção de pasta ──────────────────────────────────────────────────────
+    # ── Selecao de pasta ───────────────────────────────────────────────────────
 
     def _pick_input(self):
         p = filedialog.askdirectory(title="Selecionar Pasta de Origem")
@@ -453,16 +461,16 @@ class App(_BaseApp):
         if p:
             self.output_var.set(p)
 
-    # ── Processamento ─────────────────────────────────────────────────────────
+    # ── Processamento ──────────────────────────────────────────────────────────
 
     def _run(self):
         src = self.input_var.get().strip()
         dst = self.output_var.get().strip()
         if not src or not os.path.isdir(src):
-            messagebox.showerror("Erro", "Selecione uma pasta de entrada válida.")
+            messagebox.showerror("Erro", "Selecione uma pasta de entrada valida.")
             return
         if not dst or not os.path.isdir(dst):
-            messagebox.showerror("Erro", "Selecione uma pasta de saída válida.")
+            messagebox.showerror("Erro", "Selecione uma pasta de saida valida.")
             return
 
         self._hide_summary()
@@ -482,21 +490,12 @@ class App(_BaseApp):
         ok = warn = err = 0
 
         try:
-            # Guarda pastas AGRUPADOS existentes para não re-processar
-            agrupados_dir = os.path.join(dst, "AGRUPADOS")
-            existing = set()
-            if os.path.isdir(agrupados_dir):
-                existing = {
-                    f.lower() for f in os.listdir(agrupados_dir)
-                    if f.lower().endswith("_agrupado.pdf")
-                }
-
             groups, unclassified = scan_folder(
                 src, log_callback=log_cb,
                 cancel_flag=lambda: self._cancelled)
 
             if self._cancelled:
-                self._log("\n  ⏹ Cancelado.", WARN)
+                self._log("\n  Cancelado.", WARN)
                 return
 
             total = len(groups)
@@ -512,24 +511,23 @@ class App(_BaseApp):
 
             for i, (gid, files) in enumerate(sorted(groups.items()), 1):
                 if self._cancelled:
-                    self._log("\n  ⏹ Cancelado.", WARN)
+                    self._log("\n  Cancelado.", WARN)
                     return
 
-                short = gid[:54] + "…" if len(gid) > 54 else gid
+                short = gid[:54] + "..." if len(gid) > 54 else gid
                 self._set_current(f"Mesclando: {short}")
 
                 msg  = merge_group(gid, files, dst)
-                disp = gid[:48] + "…" if len(gid) > 48 else gid
+                disp = gid[:48] + "..." if len(gid) > 48 else gid
 
-                # v1.6.2 — cor baseada no score %
-                _sm = re.search(r'\[([⚠✔✘])\s*(\d+)%\]', msg)
+                _sm  = re.search(r'\[([*!+])?\s*(\d+)%\]', msg)
                 _pct = int(_sm.group(2)) if _sm else None
 
-                if "✔" in msg:
+                if "OK" in msg or (chr(10004) in msg):
                     clr = SUCCESS if (_pct is None or _pct >= 80) else WARN
                     log_cb(f"  {i:>2}/{total}   {msg.replace(gid, disp)}", clr)
                     ok += 1
-                elif "✘" in msg:
+                elif "ERRO" in msg or (chr(10008) in msg):
                     log_cb(f"  {i:>2}/{total}   {msg.replace(gid, disp)}", DANGER)
                     err += 1
                 else:
@@ -546,9 +544,9 @@ class App(_BaseApp):
             # CONFERIR
             conf_count = len(unclassified)
             if unclassified:
-                log_cb(f"\n  {conf_count} arquivo(s) → CONFERIR", WARN)
+                log_cb(f"\n  {conf_count} arquivo(s) para CONFERIR", WARN)
                 for f in unclassified:
-                    log_cb(f"    ·  {f}", MUTED)
+                    log_cb(f"    .  {f}", MUTED)
                 if self.copy_unmatched.get():
                     conf_dir = os.path.join(dst, "CONFERIR")
                     os.makedirs(conf_dir, exist_ok=True)
@@ -563,10 +561,9 @@ class App(_BaseApp):
                         try: shutil.copy2(s, d)
                         except Exception: pass
 
-            # Resumo final
             total_str = f"{ok+warn+err} grupo(s)"
-            log_cb(f"\n  {'─'*50}", SUBTLE)
-            log_cb(f"  ✔ {ok}  ⚠ {warn}  ✘ {err}  CONFERIR {conf_count}  ({total_str})", FG)
+            log_cb(f"\n  {'─'*48}", SUBTLE)
+            log_cb(f"  OK {ok}   Revisar {warn}   Erros {err}   Conferir {conf_count}   ({total_str})", FG)
 
             self._show_summary(ok, warn, err, conf_count, dst)
             self._save_last_folders(src, dst)
@@ -595,10 +592,10 @@ class App(_BaseApp):
         self.after(0, lambda: self._current_label.config(text=text))
 
     def _set_dot_active(self, active):
-        color = ACC if active else SUBTLE
+        color = ACC if active else BORDER2
         self.after(0, lambda: (
-            self._log_dot.delete("all"),
-            self._log_dot.create_oval(1, 1, 7, 7, fill=color, outline=""),
+            self._log_dot_cv.delete("all"),
+            self._log_dot_cv.create_oval(1, 1, 7, 7, fill=color, outline=""),
         ))
 
     def _export_log(self):
@@ -614,15 +611,17 @@ class App(_BaseApp):
             except Exception as e:
                 messagebox.showerror("Erro", str(e))
 
-    # ── Persistência ─────────────────────────────────────────────────────────
+    # ── Persistencia ───────────────────────────────────────────────────────────
 
     def _load_last_folders(self):
         try:
             with open(_CFG) as f:
                 d = json.load(f)
             src = d.get("src", ""); dst = d.get("dst", "")
-            if os.path.isdir(src): self.input_var.set(src); self._update_pdf_count(src)
-            if os.path.isdir(dst): self.output_var.set(dst)
+            if os.path.isdir(src):
+                self.input_var.set(src); self._update_pdf_count(src)
+            if os.path.isdir(dst):
+                self.output_var.set(dst)
         except Exception: pass
 
     def _save_last_folders(self, src, dst):
@@ -631,7 +630,7 @@ class App(_BaseApp):
                 json.dump({"src": src, "dst": dst}, f)
         except Exception: pass
 
-    # ── Auto-update ───────────────────────────────────────────────────────────
+    # ── Auto-update ────────────────────────────────────────────────────────────
 
     def _versao_para_tuple(self, v):
         nums = re.findall(r"\d+", v)
@@ -654,8 +653,8 @@ class App(_BaseApp):
         vn  = dados.get("version", "?")
         url = dados.get("download_url", "")
         cl  = dados.get("changelog", "")
-        msg = f"Nova versão disponível: v{vn}\nVersão atual: v{VERSION}\n"
+        msg = f"Nova versao disponivel: v{vn}\nVersao atual: v{VERSION}\n"
         if cl: msg += f"\nNovidades:\n{cl}"
-        msg += "\n\nAbrir página de download?"
-        if url and messagebox.askyesno("Atualização disponível", msg):
+        msg += "\n\nAbrir pagina de download?"
+        if url and messagebox.askyesno("Atualizacao disponivel", msg):
             webbrowser.open(url)
