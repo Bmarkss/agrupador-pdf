@@ -114,6 +114,13 @@ def resolve_with_graph(
         if ga in merged or gb in merged or ga not in groups or gb not in groups:
             continue
 
+        # Nunca faz auto-merge de grupos GNRE — GNREs de mesmo valor/período
+        # são pagamentos distintos para estados diferentes, não duplicatas.
+        docs_a = groups[ga]; docs_b = groups[gb]
+        if any(d.doc_type == "gnre" or getattr(d, "content_type", None) == "gnre"
+               for d in docs_a + docs_b):
+            continue
+
         # Verifica que os grupos não têm o mesmo tipo de doc (evita merge inválido)
         tipos_a = {d.doc_type for d in groups[ga]}
         tipos_b = {d.doc_type for d in groups[gb]}

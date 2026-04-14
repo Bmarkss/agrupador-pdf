@@ -133,6 +133,11 @@ def build_groups(
         matched = None
         if doc.value_digits:
             for gid, gdocs in groups.items():
+                # Nunca absorve orfao em grupo GNRE por valor — GNREs de estados
+                # diferentes podem ter o mesmo valor e periodo (coincidencia).
+                if any(gd.doc_type == "gnre" or gd.content_type == "gnre"
+                       for gd in gdocs):
+                    continue
                 if any(gd.value_digits == doc.value_digits
                        and gd.period == doc.period for gd in gdocs):
                     matched = gid; break

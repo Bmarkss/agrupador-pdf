@@ -117,9 +117,11 @@ def match_by_fuzzy_entity(
     for i, ga in enumerate(gids):
         if ga in merged or ga not in groups:
             continue
-        # Não funde grupos que são todos GNRE — cada GNRE é de um estado distinto
-        # e GNREs diferentes nunca devem ser agrupados entre si
-        if all(d.doc_type == "gnre" for d in groups[ga]):
+        # Não funde grupos que contêm GNRE — cada GNRE é um pagamento distinto.
+        # Usa doc_type OU content_type porque doc_type depende da classificação ML
+        # que pode divergir; content_type é extraído diretamente do conteúdo.
+        if any(d.doc_type == "gnre" or d.content_type == "gnre"
+               for d in groups[ga]):
             continue
         va = _all_val_digits(groups[ga])
         if not va:

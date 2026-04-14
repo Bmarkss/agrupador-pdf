@@ -630,10 +630,11 @@ def collect_all(
                 doc.value_raw, doc.value_digits = _gnre_raw, _gnre_digits
 
         # v1.6.0 — classificação híbrida: regras + ML
-        # Prioridade: sufixo -C no nome > segmento do nome > ML sobre conteúdo
+        # Prioridade: sufixo -C no nome > GNRE (content_type) > segmento do nome > ML sobre conteúdo
         _ml_type, _ml_conf = classify(doc.content[:3000]) if doc.content else ("desconhecido", 0.0)
         doc.doc_type = (
             ("comprovante" if doc.suffix_c else None)
+            or ("gnre" if doc.content_type == "gnre" else None)  # GNRE antes do ML — evita "nota"
             or classify_segment(doc.type_segment)
             or classify_segment(doc.stem)
             or (_ml_type if _ml_type != "desconhecido" and _ml_conf >= 0.50 else None)
