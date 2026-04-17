@@ -179,7 +179,7 @@ class App(_BaseApp):
     # ── Aba Agrupar ────────────────────────────────────────────────────────────
 
     def _build_agrupar(self, body):
-        body_inner = tk.Frame(body_inner, bg=BG)
+        body_inner = tk.Frame(body, bg=BG)
         body_inner.pack(fill="both", expand=True, padx=SP_20, pady=SP_16)
 
         self.input_var  = tk.StringVar()
@@ -187,7 +187,7 @@ class App(_BaseApp):
 
         # Pasta de origem
         self._row_input = FolderRow(
-            body, "Pasta de Origem",
+            body_inner, "Pasta de Origem",
             self.input_var, self._pick_input,
             show_dnd_hint=True, parent_bg=BG)
         self._row_input.pack(fill="x", pady=(0, SP_4))
@@ -201,7 +201,7 @@ class App(_BaseApp):
 
         # Pasta de destino
         self._row_output = FolderRow(
-            body, "Pasta de Destino",
+            body_inner, "Pasta de Destino",
             self.output_var, self._pick_output,
             show_dnd_hint=True, parent_bg=BG)
         self._row_output.pack(fill="x", pady=(0, SP_16))
@@ -233,7 +233,7 @@ class App(_BaseApp):
 
         # ── Botao principal ────────────────────────────────────────────────
         self._btn_run = FlatButton(
-            body, "  AGRUPAR PDFs", self._run,
+            body_inner, "  AGRUPAR PDFs", self._run,
             accent=True, font=FONT_TITLE,
             padx=32, pady=SP_14,
             full_width=True, parent_bg=BG)
