@@ -17,11 +17,11 @@ from .config import (
 )
 from .models import DocInfo, normalize, normalize_value, simhash
 from .scorer     import cnpj_from_nfe_key
-from .classifier import classify, warmup as _warmup_classifier
+from .classifier import classify
 from .validator  import (
-    validate_cnpj, validate_nfe_key, validate_linha_digitavel,
+    validate_linha_digitavel,
     extract_valid_cnpjs, extract_valid_nfe_keys,
-    normalize_company_name, classify_from_nfe_key,
+    normalize_company_name,
 )
 try:
     from .cnpj_cache import lookup_cnpj_async as _lookup_cnpj_async
@@ -212,8 +212,6 @@ def extract_boleto_fields(path: str) -> dict:
                 for table in (page.extract_tables() or []):
                     for row in table:
                         cells = [str(c or "").strip() for c in row]
-                        row_text = " | ".join(cells).lower()
-
                         for cell in cells:
                             cell_l = cell.lower()
                             # Cedente (quem emite o boleto)
@@ -374,7 +372,7 @@ def extract_period(stem: str, content: str = "") -> str | None:
     # 1. VENCIMENTO no nome do arquivo
     m = RE_VENCIMENTO.search(stem)
     if m:
-        dd, mm, yyyy = m.group(1), m.group(2), m.group(3)
+        mm, yyyy = m.group(2), m.group(3)
         return f"{mm}.{yyyy[-2:]}"  # ex: "04.26"
 
     # 2. Mes/ano no nome
@@ -655,7 +653,7 @@ def collect_all(
         if doc.cnpj_emitter and _CNPJ_CACHE_OK and not doc.group_id:
             def _cb(result, d=doc):
                 if result:
-                    nome = result.get("fantasia") or result.get("nome", "")
+                    nome = result.get("nome_fantasia") or result.get("razao_social", "")
                     if nome:
                         d.group_id = normalize_company_name(nome)[:60] or nome[:60]
             try: _lookup_cnpj_async(doc.cnpj_emitter, _cb)

@@ -14,7 +14,6 @@ brasileiros — o ML serve como fallback e melhora com o uso.
 """
 
 from __future__ import annotations
-import re
 import os
 import pickle
 import threading

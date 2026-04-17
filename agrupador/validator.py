@@ -164,7 +164,7 @@ def validate_linha_digitavel(raw: str) -> dict | None:
         c3_dados = digits[21:31]
         c3_dv    = int(digits[31])
         # DV geral
-        dv_geral = int(digits[32])
+        # dv_geral = int(digits[32])  # calculado mas nao validado nesta versao
         # Fator vencimento e valor
         fator  = digits[33:37]
         valor  = digits[37:47]

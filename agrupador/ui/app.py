@@ -9,16 +9,15 @@ from urllib.request import urlopen
 
 from ..config import (
     VERSION,
-    BG, SURFACE, SURF2, CARD, CARD2, BORDER, BORDER2,
-    ACC, ACC2, ACC3, ACC_GLOW, ACCDIM, FG, MUTED, SUBTLE,
-    SUCCESS, SUCCESS_BG, WARN, WARN_BG, DANGER, DANGER_BG, INFO_BG,
+    BG, SURFACE, CARD, CARD2, BORDER, BORDER2,
+    ACC, ACC2, ACCDIM, FG, MUTED, SUBTLE,
+    SUCCESS, SUCCESS_BG, WARN, WARN_BG, DANGER, DANGER_BG,
     ELEV_1,
-    FONT_HERO, FONT_TITLE, FONT_HEADING, FONT_LABEL, FONT_LABEL_S,
+    FONT_HERO, FONT_TITLE, FONT_LABEL, FONT_LABEL_S,
     FONT_BODY, FONT_BODY_S, FONT_HINT, FONT_MONO, FONT_BADGE, FONT_NUM,
-    SP_4, SP_6, SP_8, SP_10, SP_12, SP_14, SP_16, SP_20, SP_24,
-    HEIGHT_BTN_LG, HEIGHT_PROG, R_SM, R_MD, R_LG,
+    SP_4, SP_6, SP_8, SP_10, SP_12, SP_14, SP_16, SP_20,
 )
-from ..merger import scan_folder, merge_group, build_output_name
+from ..merger import scan_folder, merge_group
 
 try:
     from tkinterdnd2 import TkinterDnD as _TkDnD
@@ -28,8 +27,7 @@ except ImportError:
     _DND_OK = False
 
 from .widgets import (
-    draw_rounded_rect, FlatButton, SinkButton, RoundCard, AccentCard,
-    FocusEntry, Tooltip, ProgressBar, FolderRow, apply_ttk_style,
+    FlatButton, Tooltip, ProgressBar, FolderRow, apply_ttk_style,
 )
 
 _CFG = os.path.join(os.path.expanduser("~"), ".agrupadorpdf.json")
@@ -559,8 +557,8 @@ class App(_BaseApp):
                 self.after(0, _done)
 
             except Exception as e:
-                def _err():
-                    self._mr_status.config(text=f"Erro: {e}", fg=DANGER)
+                def _err(err=e):
+                    self._mr_status.config(text=f"Erro: {err}", fg=DANGER)
                     self._mr_btn_juntar.configure(state="normal")
                 self.after(0, _err)
 

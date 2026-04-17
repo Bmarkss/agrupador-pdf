@@ -13,7 +13,7 @@ from .config  import ORDER_MERGE
 from .models  import DocInfo
 from .extractor import collect_all
 from .grouper   import build_groups
-from .scorer         import group_confidence, confidence_score, score_to_symbol, score_to_label, SCORE_GREEN, SCORE_YELLOW
+from .scorer         import group_confidence, confidence_score, score_to_symbol, score_to_label, SCORE_GREEN
 from .feedback_store  import record_grouping, record_acceptance
 from .graph_resolver  import resolve_with_graph, find_orphan_matches
 

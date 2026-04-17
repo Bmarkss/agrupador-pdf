@@ -8,7 +8,6 @@ v1.4.0:
   - Duplicatas marcadas sao excluidas do CONFERIR (nao geram ruido)
 """
 
-import re
 from collections import Counter
 
 from .config import ORDER_MERGE
@@ -21,7 +20,6 @@ from .matcher import (
     match_by_secondary_value,
     match_by_nf_key,
     match_by_installment,
-    expand_multi_e_values,
 )
 
 

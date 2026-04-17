@@ -11,7 +11,6 @@ Banco em ~/.agrupadorpdf_feedback.db
 """
 
 import os, json, sqlite3, threading, math
-from datetime import datetime
 
 _DB_PATH = os.path.join(os.path.expanduser("~"), ".agrupadorpdf_feedback.db")
 _lock    = threading.Lock()
