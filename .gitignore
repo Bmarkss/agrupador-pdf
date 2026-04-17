@@ -1,2 +1,4 @@
 AgrupadorPDF_v1.5.0
 AgrupadorPDF_v1.6.0
+__pycache__/
+*.pyc
