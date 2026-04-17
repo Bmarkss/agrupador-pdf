@@ -14,6 +14,8 @@ hiddenimports = (
     + collect_submodules("pdfplumber")
     + collect_submodules("PIL")
     + collect_submodules("tkinterdnd2")
+    + collect_submodules("pypdfium2")
+    + collect_submodules("brutils")
     + [
         "tkinter",
         "tkinter.ttk",
@@ -28,6 +30,8 @@ hiddenimports = (
         "zipfile",
         "sqlite3",
         "pickle",
+        "unidecode",
+        "cleanco",
         "re",
         "os",
         "unicodedata",

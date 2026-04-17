@@ -1,11 +1,10 @@
 """
 extractor.py — Fase 1: leitura, extracao e classificacao de PDFs.
 
-v1.4.0:
-  - compute_simhash() para deteccao de duplicatas
-  - detect_content_type() — 'pix','ted','transferencia','gnre'
-  - extract_period() tambem detecta datas VENCIMENTO DD-MM-YYYY do nome
-  - extract_group_id() remove tokens de VENCIMENTO do gid
+v1.6.4:
+  - pypdfium2 como extrator primario (maior precisao em chaves NF-e e CNPJs)
+  - brutils + validator.py para classificacao deterministica pre-ML
+  - cleanco + normalize_company_name para matching de nomes
 """
 
 import os, re, warnings
@@ -19,6 +18,11 @@ from .config import (
 from .models import DocInfo, normalize, normalize_value, simhash
 from .scorer     import cnpj_from_nfe_key
 from .classifier import classify, warmup as _warmup_classifier
+from .validator  import (
+    validate_cnpj, validate_nfe_key, validate_linha_digitavel,
+    extract_valid_cnpjs, extract_valid_nfe_keys,
+    normalize_company_name, classify_from_nfe_key,
+)
 try:
     from .cnpj_cache import lookup_cnpj_async as _lookup_cnpj_async
     _CNPJ_CACHE_OK = True
@@ -30,6 +34,13 @@ try:
     _PLUMBER_OK = True
 except ImportError:
     _PLUMBER_OK = False
+
+# pypdfium2 — extrator primario (Apache-2.0/BSD, maior precisao que pypdf)
+try:
+    import pypdfium2 as _pdfium
+    _PDFIUM_OK = True
+except ImportError:
+    _PDFIUM_OK = False
 
 try:
     from pypdf import PdfReader as _PdfReader
@@ -45,31 +56,33 @@ except ImportError:
 def extract_text(path: str) -> tuple[str, int]:
     """
     Extrai texto de um PDF.
-    Estratégia otimizada para performance:
-    - pypdf como extrator principal (rápido, ~10ms/pág)
-    - pdfplumber como fallback quando pypdf retorna pouco texto
-    - OCR como último recurso
-    pdfplumber é chamado separadamente em extract_boleto_fields apenas para
-    documentos classificados como boleto, onde as tabelas estruturadas importam.
+    Hierarquia v1.6.4:
+    1. pypdfium2  — primario, maior precisao em sequencias numericas (NF-e, boleto)
+    2. pdfplumber — fallback estrutural (tabelas, boletos complexos)
+    3. pypdf      — fallback puro-Python
+    4. OCR        — ultimo recurso para PDFs escaneados
     """
     text = ""; pages = 1
-
-    # Tentativa 1: pypdf — skip em PDFs > 3MB (contratos/relatórios pesados)
-    # Para docs fiscais, o GID vem do nome do arquivo; o conteúdo é complementar.
-    _fsize_kb = os.path.getsize(path) // 1024 if os.path.exists(path) else 0
-    if _PdfReader and _fsize_kb <= 3000:
-        try:
-            reader = _PdfReader(path)
-            pages  = len(reader.pages)
-            # Lê no máximo 8 páginas para documentos multi-página
-            pages_to_read = reader.pages[:8] if pages > 8 else reader.pages
-            text   = " ".join(p.extract_text() or "" for p in pages_to_read).strip()
-        except Exception:
-            pass
-
-    # Tentativa 2: pdfplumber como fallback se pypdf extraiu pouco
-    # Limita a 5MB para evitar timeout em PDFs grandes (ex: relatórios com imagens)
     _fsize = os.path.getsize(path) if os.path.exists(path) else 0
+    _fsize_kb = _fsize // 1024
+
+    # Tentativa 1: pypdfium2 (primario) — skip acima de 10MB
+    if _PDFIUM_OK and _fsize_kb <= 10_000:
+        try:
+            pdf  = _pdfium.PdfDocument(path)
+            pages = len(pdf)
+            parts = []
+            for i in range(min(pages, 8)):
+                page    = pdf[i]
+                textobj = page.get_textpage()
+                parts.append(textobj.get_text_bounded())
+                textobj.close(); page.close()
+            pdf.close()
+            text = " ".join(parts).strip()
+        except Exception:
+            text = ""
+
+    # Tentativa 2: pdfplumber — fallback se pypdfium2 extraiu pouco
     if len(text) < MIN_TEXT_CHARS and _PLUMBER_OK and _fsize < 5_000_000:
         try:
             with warnings.catch_warnings():
@@ -82,13 +95,23 @@ def extract_text(path: str) -> tuple[str, int]:
         except Exception:
             pass
 
+    # Tentativa 3: pypdf puro-Python — fallback final antes do OCR
+    if len(text) < MIN_TEXT_CHARS and _PdfReader and _fsize_kb <= 3000:
+        try:
+            reader = _PdfReader(path)
+            pages  = len(reader.pages)
+            parts  = [p.extract_text() or "" for p in reader.pages[:8]]
+            text   = " ".join(parts).strip()
+        except Exception:
+            pass
+
     if len(text) >= MIN_TEXT_CHARS:
         return text.lower(), pages
 
-    # Tentativa 3: OCR
+    # Tentativa 4: OCR
     if OCR_AVAILABLE:
         try:
-            kw = {"poppler_path": _POPPLER} if os.path.isdir(_POPPLER) else {}
+            kw    = {"poppler_path": _POPPLER} if os.path.isdir(_POPPLER) else {}
             imgs  = convert_from_path(path, dpi=200, **kw)
             pages = len(imgs)
             text  = " ".join(pytesseract.image_to_string(i, lang="por") for i in imgs).strip()
@@ -597,20 +620,47 @@ def collect_all(
                            or extract_installment(doc.content[:2000]))
 
         doc.nf_keys      = extract_nf_keys(doc.content)
-        # CNPJ: primeiro tenta extrair da chave NF-e (100% confiável),
-        # depois faz fallback para regex no conteúdo
+
+        # v1.6.4 — Validação estrutural offline (validator.py)
+        # Chaves NF-e com DV válido e CNPJs com módulo 11 verificado
+        _valid_keys  = extract_valid_nfe_keys(doc.content) if doc.content else []
+        _valid_cnpjs = extract_valid_cnpjs(doc.content[:4000]) if doc.content else []
+
+        # Substitui nf_keys pelas validadas estruturalmente
+        if _valid_keys:
+            doc.nf_keys = {k['key'] for k in _valid_keys}
+
+        # Classificação determinística pela estrutura do documento
+        _struct_type = _valid_keys[0]['tipo'] if _valid_keys else None
+
+        # Valida linha digitável no conteúdo (boleto/gnre)
+        if not _struct_type and doc.content:
+            _raw_nodots = doc.content.replace(' ','').replace('\n','')
+            for _m in re.finditer(r'\d{47,48}', _raw_nodots):
+                _li = validate_linha_digitavel(_m.group())
+                if _li and _li.get('valido'):
+                    _struct_type = 'gnre' if _li.get('gnre') else 'boleto'
+                    break
+
+        # CNPJ com validação DV como fonte primária
         _cnpj_from_key = next(
-            (cnpj_from_nfe_key(k) for k in doc.nf_keys if cnpj_from_nfe_key(k)),
-            None
+            (k['cnpj'] for k in _valid_keys if k.get('cnpj_valido')), None
+        ) or next(
+            (cnpj_from_nfe_key(k) for k in doc.nf_keys if cnpj_from_nfe_key(k)), None
         )
-        doc.cnpj_emitter = _cnpj_from_key or extract_cnpj(doc.content[:4000])
-        # Enriquece entity_name via cache CNPJ (background, sem bloquear)
+        _cnpj_from_text = _valid_cnpjs[0] if _valid_cnpjs else None
+        doc.cnpj_emitter = _cnpj_from_key or _cnpj_from_text or extract_cnpj(doc.content[:4000])
+
+        # Enriquece entity_name via cache CNPJ — agora usa nome fantasia + normaliza
         if doc.cnpj_emitter and _CNPJ_CACHE_OK and not doc.group_id:
             def _cb(result, d=doc):
-                if result and result.get("nome"):
-                    d.group_id = result["nome"][:60]
+                if result:
+                    nome = result.get("fantasia") or result.get("nome", "")
+                    if nome:
+                        d.group_id = normalize_company_name(nome)[:60] or nome[:60]
             try: _lookup_cnpj_async(doc.cnpj_emitter, _cb)
             except Exception: pass
+
         doc.due_dates    = extract_due_dates(doc.content)
         doc.doc_numbers  = extract_doc_numbers(doc.stem, doc.content)
         doc.period       = extract_period(stem_clean, doc.content)
@@ -619,24 +669,26 @@ def collect_all(
         # v1.4.0 — SimHash e content_type
         doc.simhash      = simhash(doc.content[:8000]) if doc.content else 0
         doc.content_type = detect_content_type(doc.content)
-        # Pagamentos diretos (PIX/TED/transferencia) nao precisam de boleto
         doc.is_direct    = doc.content_type in ("pix", "ted", "transferencia")
 
-        # v1.7.0 — GNRE: substitui value_digits pelo "Total a Recolher"
-        # O valor principal da GNRE nao inclui juros/multa, mas o comprovante
-        # bancario registra o valor pago (total) como "Valor principal".
-        # Sem esse override os dois docs ficam com valores diferentes e nao agrupam.
+        # v1.7.0 — GNRE: Total a Recolher substitui valor principal
         if doc.content_type == "gnre" and doc.content:
             _gnre_raw, _gnre_digits = extract_gnre_total(doc.content)
             if _gnre_digits:
                 doc.value_raw, doc.value_digits = _gnre_raw, _gnre_digits
 
-        # v1.6.0 — classificação híbrida: regras + ML
-        # Prioridade: sufixo -C no nome > GNRE (content_type) > segmento do nome > ML sobre conteúdo
+        # v1.6.4 — classificação hierárquica (determinística > regras > ML):
+        # 1. sufixo -C    → comprovante
+        # 2. estrutural   → tipo validado por DV (chave NF-e, linha digitável)
+        # 3. content_type → gnre detectado no conteúdo
+        # 4. segmento/stem → keywords no nome do arquivo
+        # 5. ML           → TF-IDF + LinearSVC
+        # 6. keywords     → conteúdo do PDF
         _ml_type, _ml_conf = classify(doc.content[:3000]) if doc.content else ("desconhecido", 0.0)
         doc.doc_type = (
             ("comprovante" if doc.suffix_c else None)
-            or ("gnre" if doc.content_type == "gnre" else None)  # GNRE antes do ML — evita "nota"
+            or _struct_type
+            or ("gnre" if doc.content_type == "gnre" else None)
             or classify_segment(doc.type_segment)
             or classify_segment(doc.stem)
             or (_ml_type if _ml_type != "desconhecido" and _ml_conf >= 0.50 else None)

@@ -34,7 +34,7 @@ echo.
 
 echo [2/5] Instalando dependencias...
 python -m pip install --upgrade pip --quiet
-python -m pip install pyinstaller pypdf pdfplumber scikit-learn rapidfuzz networkx tkinterdnd2 --quiet
+python -m pip install pyinstaller pypdf pdfplumber scikit-learn rapidfuzz networkx tkinterdnd2 pypdfium2 brutils unidecode cleanco --quiet
 if errorlevel 1 (
     echo [ERRO] Falha ao instalar dependencias
     pause
