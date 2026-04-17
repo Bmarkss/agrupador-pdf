@@ -131,7 +131,56 @@ class App(_BaseApp):
 
     def _build_body(self):
         body = tk.Frame(self, bg=BG)
-        body.pack(fill="both", expand=True, padx=SP_20, pady=SP_16)
+        body.pack(fill="both", expand=True)
+
+        # ── Tab switcher ───────────────────────────────────────────────────────
+        tab_bar = tk.Frame(body, bg=BORDER, padx=2, pady=0)
+        tab_bar.pack(fill="x")
+        tab_inner = tk.Frame(tab_bar, bg=SURFACE)
+        tab_inner.pack(fill="x")
+
+        self._tab_frames = {}
+
+        def _switch_tab(name):
+            for n, f in self._tab_frames.items():
+                f.pack_forget()
+            self._tab_frames[name].pack(fill="both", expand=True)
+            for n, (btn, lbl) in _tab_btns.items():
+                active = n == name
+                btn.config(bg=ACC if active else SURFACE)
+                lbl.config(bg=ACC if active else SURFACE,
+                           fg=FG if active else MUTED)
+
+        _tab_btns = {}
+        for tab_name, tab_label in [("agrupar", "Agrupar PDFs"), ("rapido", "Merge Rápido")]:
+            btn_f = tk.Frame(tab_inner, bg=SURFACE, cursor="hand2")
+            btn_f.pack(side="left")
+            lbl = tk.Label(btn_f, text=tab_label,
+                           font=FONT_LABEL, bg=SURFACE, fg=MUTED,
+                           padx=SP_20, pady=SP_10, cursor="hand2")
+            lbl.pack()
+            _tab_btns[tab_name] = (btn_f, lbl)
+            for w in (btn_f, lbl):
+                w.bind("<Button-1>", lambda _e, n=tab_name: _switch_tab(n))
+
+        # ── Aba 1: Agrupar (lógica existente) ─────────────────────────────────
+        f_agrupar = tk.Frame(body, bg=BG)
+        self._tab_frames["agrupar"] = f_agrupar
+        self._build_agrupar(f_agrupar)
+
+        # ── Aba 2: Merge Rápido ────────────────────────────────────────────────
+        f_rapido = tk.Frame(body, bg=BG)
+        self._tab_frames["rapido"] = f_rapido
+        self._build_merge_rapido(f_rapido)
+
+        # Ativa aba inicial
+        _switch_tab("agrupar")
+
+    # ── Aba Agrupar ────────────────────────────────────────────────────────────
+
+    def _build_agrupar(self, body):
+        body_inner = tk.Frame(body_inner, bg=BG)
+        body_inner.pack(fill="both", expand=True, padx=SP_20, pady=SP_16)
 
         self.input_var  = tk.StringVar()
         self.output_var = tk.StringVar()
@@ -144,7 +193,7 @@ class App(_BaseApp):
         self._row_input.pack(fill="x", pady=(0, SP_4))
 
         # Contador de PDFs
-        count_f = tk.Frame(body, bg=BG)
+        count_f = tk.Frame(body_inner, bg=BG)
         count_f.pack(fill="x", pady=(0, SP_8))
         self._pdf_count_label = tk.Label(
             count_f, text="", font=FONT_HINT, bg=BG, fg=ACC2)
@@ -160,14 +209,14 @@ class App(_BaseApp):
         self._setup_dnd()
 
         # Divisor
-        tk.Frame(body, bg=BORDER2, height=2).pack(fill="x", pady=(0, SP_12))
+        tk.Frame(body_inner, bg=BORDER2, height=2).pack(fill="x", pady=(0, SP_12))
 
         # ── Opcoes inline ──────────────────────────────────────────────────
         self.open_after     = tk.BooleanVar(value=True)
         self.copy_unmatched = tk.BooleanVar(value=True)
         self.verbose_mode   = tk.BooleanVar(value=False)
 
-        opts_frame = tk.Frame(body, bg=BORDER, padx=2, pady=2)
+        opts_frame = tk.Frame(body_inner, bg=BORDER, padx=2, pady=2)
         opts_frame.pack(fill="x", pady=(0, SP_14))
 
         opts_inner = tk.Frame(opts_frame, bg=BG)
@@ -191,7 +240,7 @@ class App(_BaseApp):
         self._btn_run.pack(fill="x", pady=(0, SP_8))
 
         # ── Faixa secundaria ───────────────────────────────────────────────
-        sec = tk.Frame(body, bg=ELEV_1,
+        sec = tk.Frame(body_inner, bg=ELEV_1,
                        highlightbackground=BORDER2, highlightthickness=2)
         sec.pack(fill="x", pady=(0, SP_12))
         sec_inner = tk.Frame(sec, bg=ELEV_1, padx=SP_8, pady=SP_6)
@@ -211,7 +260,7 @@ class App(_BaseApp):
         self.btn_cancel.configure(state="disabled")
 
         # ── Progresso ──────────────────────────────────────────────────────
-        prog_frame = tk.Frame(body, bg=BG)
+        prog_frame = tk.Frame(body_inner, bg=BG)
         prog_frame.pack(fill="x", pady=(0, SP_10))
 
         prog_hd = tk.Frame(prog_frame, bg=BG)
@@ -232,11 +281,11 @@ class App(_BaseApp):
         self._current_label.pack(fill="x")
 
         # Placeholder para o resumo
-        self._summary_frame = tk.Frame(body, bg=BG)
+        self._summary_frame = tk.Frame(body_inner, bg=BG)
         self._summary_shown = False
 
         # ── Log ────────────────────────────────────────────────────────────
-        self._log_card = tk.Frame(body, bg=MUTED, padx=2, pady=2)
+        self._log_card = tk.Frame(body_inner, bg=MUTED, padx=2, pady=2)
         self._log_card.pack(fill="both", expand=True)
 
         log_wrap = tk.Frame(self._log_card, bg=CARD)
@@ -279,6 +328,244 @@ class App(_BaseApp):
         self.log.tag_config("muted",   foreground=MUTED)
         self.log.tag_config("acc",     foreground=ACC2)
         self.log.tag_config("subtle",  foreground=SUBTLE)
+
+    # ── Aba Merge Rápido ───────────────────────────────────────────────────────
+
+    def _build_merge_rapido(self, body):
+        """
+        Merge imediato: arrasta PDFs, define nome do arquivo de saída, clica Juntar.
+        Sem análise, sem classificação — concatena na ordem exata dos arquivos.
+        """
+        body_inner = tk.Frame(body, bg=BG)
+        body_inner.pack(fill="both", expand=True, padx=SP_20, pady=SP_16)
+
+        self._mr_files: list[str] = []   # caminhos completos na ordem do usuário
+
+        # ── Zona de drop ──────────────────────────────────────────────────
+        drop_outer = tk.Frame(body_inner, bg=BORDER, padx=2, pady=2)
+        drop_outer.pack(fill="x", pady=(0, SP_10))
+
+        drop_inner = tk.Frame(drop_outer, bg=CARD2, height=120)
+        drop_inner.pack(fill="x")
+        drop_inner.pack_propagate(False)
+
+        self._mr_drop_lbl = tk.Label(
+            drop_inner,
+            text="Arraste PDFs aqui  —  ou clique para selecionar",
+            font=FONT_BODY, bg=CARD2, fg=MUTED, cursor="hand2")
+        self._mr_drop_lbl.place(relx=.5, rely=.5, anchor="center")
+
+        def _on_drop(event):
+            raw = event.data.strip()
+            # tkinterdnd2 retorna paths entre {} quando há espaços
+            paths = [p.strip("{}") for p in
+                     (__import__("re").findall(r'\{[^}]+\}|[^\s]+', raw))]
+            added = 0
+            for p in paths:
+                if p.lower().endswith(".pdf") and p not in self._mr_files:
+                    self._mr_files.append(p)
+                    added += 1
+            if added:
+                self._mr_refresh_list()
+
+        def _on_click(_e=None):
+            paths = filedialog.askopenfilenames(
+                title="Selecionar PDFs",
+                filetypes=[("PDF", "*.pdf"), ("Todos", "*.*")])
+            for p in paths:
+                if p not in self._mr_files:
+                    self._mr_files.append(p)
+            if paths:
+                self._mr_refresh_list()
+
+        drop_inner.bind("<Button-1>", _on_click)
+        self._mr_drop_lbl.bind("<Button-1>", _on_click)
+        if _DND_OK:
+            try:
+                drop_inner.drop_target_register("DND_Files")
+                drop_inner.dnd_bind("<<Drop>>", _on_drop)
+            except Exception:
+                pass
+
+        # ── Lista de arquivos com reordenação ─────────────────────────────
+        list_outer = tk.Frame(body_inner, bg=BORDER, padx=2, pady=2)
+        list_outer.pack(fill="both", expand=True, pady=(0, SP_10))
+
+        self._mr_list_frame = tk.Frame(list_outer, bg=CARD)
+        self._mr_list_frame.pack(fill="both", expand=True)
+
+        # ── Nome do arquivo de saída ───────────────────────────────────────
+        out_f = tk.Frame(body_inner, bg=BG)
+        out_f.pack(fill="x", pady=(0, SP_10))
+        tk.Label(out_f, text="NOME DO ARQUIVO",
+                 font=FONT_LABEL_S, bg=BG, fg=MUTED).pack(anchor="w", pady=(0, SP_4))
+
+        out_wrap = tk.Frame(out_f, bg=BORDER, padx=2, pady=2)
+        out_wrap.pack(fill="x")
+        out_row = tk.Frame(out_wrap, bg=CARD)
+        out_row.pack(fill="x")
+
+        self._mr_nome_var = tk.StringVar(value="documentos_unidos")
+        mr_name_entry = tk.Entry(out_row, textvariable=self._mr_nome_var,
+                                 font=FONT_MONO, bg=CARD, fg=FG,
+                                 insertbackground=ACC, relief="flat",
+                                 highlightthickness=0, bd=0)
+        mr_name_entry.pack(side="left", fill="x", expand=True, ipady=SP_8,
+                            padx=(SP_10, 0))
+        tk.Label(out_row, text=".pdf",
+                 font=FONT_MONO, bg=CARD, fg=MUTED,
+                 padx=SP_8, pady=SP_8).pack(side="left")
+
+        # ── Botões de ação ────────────────────────────────────────────────
+        btn_row = tk.Frame(body_inner, bg=BG)
+        btn_row.pack(fill="x")
+
+        self._mr_btn_juntar = FlatButton(
+            btn_row, "  JUNTAR PDFs", self._mr_executar,
+            accent=True, font=FONT_TITLE,
+            padx=32, pady=SP_14, parent_bg=BG)
+        self._mr_btn_juntar.pack(side="left", fill="x", expand=True,
+                                  padx=(0, SP_8))
+
+        FlatButton(btn_row, "Limpar", self._mr_limpar,
+                   bg=ELEV_1, fg=MUTED, font=FONT_BODY,
+                   padx=SP_14, pady=SP_14, parent_bg=BG).pack(side="right")
+
+        # Status
+        self._mr_status = tk.Label(body_inner, text="",
+                                    font=FONT_HINT, bg=BG, fg=MUTED)
+        self._mr_status.pack(anchor="w", pady=(SP_6, 0))
+
+        self._mr_refresh_list()
+
+    def _mr_refresh_list(self):
+        """Redesenha a lista de arquivos do merge rápido."""
+        for w in self._mr_list_frame.winfo_children():
+            w.destroy()
+
+        if not self._mr_files:
+            tk.Label(self._mr_list_frame,
+                     text="Nenhum PDF adicionado",
+                     font=FONT_HINT, bg=CARD, fg=MUTED,
+                     pady=SP_20).pack()
+            self._mr_drop_lbl.config(
+                text="Arraste PDFs aqui  —  ou clique para selecionar")
+            return
+
+        self._mr_drop_lbl.config(
+            text=f"{len(self._mr_files)} PDF(s) — arraste mais ou clique para adicionar")
+
+        for i, path in enumerate(self._mr_files):
+            row = tk.Frame(self._mr_list_frame, bg=ELEV_1,
+                           highlightbackground=BORDER2, highlightthickness=1)
+            row.pack(fill="x", pady=(0, 2))
+
+            # Número e nome
+            tk.Label(row, text=f"{i+1:>2}",
+                     font=FONT_MONO, bg=ELEV_1, fg=MUTED,
+                     padx=SP_8, pady=SP_6).pack(side="left")
+
+            nome = os.path.basename(path)
+            tk.Label(row, text=nome,
+                     font=FONT_BODY_S, bg=ELEV_1, fg=FG,
+                     anchor="w").pack(side="left", fill="x", expand=True)
+
+            # Botões subir/descer/remover
+            btns = tk.Frame(row, bg=ELEV_1)
+            btns.pack(side="right", padx=SP_6)
+
+            def _up(idx=i):
+                if idx > 0:
+                    self._mr_files[idx], self._mr_files[idx-1] = \
+                        self._mr_files[idx-1], self._mr_files[idx]
+                    self._mr_refresh_list()
+
+            def _dn(idx=i):
+                if idx < len(self._mr_files) - 1:
+                    self._mr_files[idx], self._mr_files[idx+1] = \
+                        self._mr_files[idx+1], self._mr_files[idx]
+                    self._mr_refresh_list()
+
+            def _rm(idx=i):
+                self._mr_files.pop(idx)
+                self._mr_refresh_list()
+
+            for txt, cmd in [("↑", _up), ("↓", _dn), ("✕", _rm)]:
+                b = tk.Label(btns, text=txt, font=FONT_BADGE,
+                             bg=ELEV_1, fg=MUTED if txt != "✕" else DANGER,
+                             padx=SP_6, pady=SP_4, cursor="hand2")
+                b.pack(side="left")
+                b.bind("<Button-1>", lambda _e, c=cmd: c())
+
+    def _mr_limpar(self):
+        self._mr_files.clear()
+        self._mr_refresh_list()
+        self._mr_status.config(text="")
+
+    def _mr_executar(self):
+        """Merge imediato: concatena PDFs na ordem da lista, sem análise."""
+        if len(self._mr_files) < 2:
+            messagebox.showwarning("Merge Rápido",
+                                   "Adicione pelo menos 2 PDFs para juntar.")
+            return
+
+        nome = self._mr_nome_var.get().strip() or "documentos_unidos"
+        if not nome.lower().endswith(".pdf"):
+            nome += ".pdf"
+
+        # Propõe salvar na mesma pasta do primeiro arquivo
+        pasta_inicial = os.path.dirname(self._mr_files[0])
+        destino = filedialog.asksaveasfilename(
+            initialdir=pasta_inicial,
+            initialfile=nome,
+            defaultextension=".pdf",
+            filetypes=[("PDF", "*.pdf")],
+            title="Salvar arquivo unificado")
+
+        if not destino:
+            return
+
+        self._mr_btn_juntar.configure(state="disabled")
+        self._mr_status.config(text="Juntando...", fg=MUTED)
+
+        def _worker():
+            try:
+                from pypdf import PdfWriter, PdfReader
+                writer = PdfWriter()
+                erros = []
+                for path in self._mr_files:
+                    try:
+                        reader = PdfReader(path)
+                        for page in reader.pages:
+                            writer.add_page(page)
+                    except Exception as e:
+                        erros.append(f"{os.path.basename(path)}: {e}")
+
+                with open(destino, "wb") as f:
+                    writer.write(f)
+
+                n_pags = sum(1 for _ in PdfReader(destino).pages)
+                msg = f"Salvo: {os.path.basename(destino)}  ({n_pags} páginas)"
+                if erros:
+                    msg += f"  |  {len(erros)} erro(s)"
+
+                def _done():
+                    self._mr_status.config(text=msg, fg=SUCCESS)
+                    self._mr_btn_juntar.configure(state="normal")
+                    if not erros:
+                        messagebox.showinfo(
+                            "Merge Rápido",
+                            f"Arquivo criado com sucesso!\n\n{os.path.basename(destino)}\n{n_pags} páginas  ·  {len(self._mr_files)} arquivos")
+                self.after(0, _done)
+
+            except Exception as e:
+                def _err():
+                    self._mr_status.config(text=f"Erro: {e}", fg=DANGER)
+                    self._mr_btn_juntar.configure(state="normal")
+                self.after(0, _err)
+
+        import threading as _th
+        _th.Thread(target=_worker, daemon=True).start()
 
     def _make_checkbox(self, parent, text, sub, var):
         """Checkbox neobrutalista: quadrado capri quando marcado."""
