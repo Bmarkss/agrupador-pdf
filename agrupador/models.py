@@ -86,82 +86,117 @@ def hamming_distance(a: int, b: int) -> int:
 
 def entity_similarity(gid_a: str, gid_b: str) -> float:
     """
-    Jaccard similarity entre tokens de dois group_ids normalizados.
-    Ignora sufixos legais (LTDA, SA, E COMERCIO, etc.).
+    Similaridade entre dois group_ids.
+    v1.6.6 — cascata de 3 sinais:
+      1. token_set_ratio (rapidfuzz) sobre nomes normalizados — lida com subconjuntos
+      2. Jaccard de tokens fonéticos (doublemetaphone) — Souza/Sousa, Ferreira/Ferreir
+      3. Jaccard simples de tokens — fallback
 
     Retorna valor em [0.0, 1.0].
-
-    Exemplos:
-      "MINAS INDUSTRIA" vs "MINAS INDUSTRIA E COMERCIO" -> ~0.67
-      "AMIL ASSISTENCIA MEDICA" vs "AMIL PLANO DE SAUDE" -> ~0.14
-      "CAIXA ECONOMICA" vs "CAIXA ECONOMICA FEDERAL" -> 0.67
     """
-    def _clean_tokens(gid: str) -> set:
-        s = normalize(gid).lower()
-        words = re.split(r"[\s\-.,;()/]+", s)
-        return {w for w in words if len(w) >= 3 and w not in LEGAL_SUFFIXES}
+    # Normaliza removendo sufixos BR (normalize_company_name do validator)
+    try:
+        from .validator import normalize_company_name as _ncn
+        na = _ncn(gid_a) or normalize(gid_a)
+        nb = _ncn(gid_b) or normalize(gid_b)
+    except ImportError:
+        na, nb = normalize(gid_a), normalize(gid_b)
 
-    ta = _clean_tokens(gid_a)
-    tb = _clean_tokens(gid_b)
-    if not ta or not tb:
+    if not na or not nb:
         return 0.0
-    inter = ta & tb
-    union = ta | tb
-    return len(inter) / len(union)
+
+    # Sinal 1: token_set_ratio (rapidfuzz) — robusto para substrings
+    try:
+        from rapidfuzz import fuzz as _fuzz
+        tsr = _fuzz.token_set_ratio(na, nb) / 100.0
+    except ImportError:
+        tsr = 0.0
+
+    # Sinal 2: Jaccard fonético via doublemetaphone
+    try:
+        from metaphone import doublemetaphone as _dm
+        def _phonetic_tokens(s: str) -> set:
+            codes = set()
+            for tok in re.split(r'[\s\-.,;()/]+', s.lower()):
+                if len(tok) >= 3:
+                    primary, secondary = _dm(tok)
+                    if primary: codes.add(primary)
+                    if secondary: codes.add(secondary)
+            return codes
+        pa, pb = _phonetic_tokens(na), _phonetic_tokens(nb)
+        phone_j = len(pa & pb) / len(pa | pb) if (pa and pb and pa | pb) else 0.0
+    except ImportError:
+        phone_j = 0.0
+
+    # Sinal 3: Jaccard de tokens simples
+    def _toks(s: str) -> set:
+        return {w for w in re.split(r'[\s\-.,;()/]+', s.lower())
+                if len(w) >= 3 and w not in LEGAL_SUFFIXES}
+    ta, tb = _toks(na), _toks(nb)
+    jaccard = len(ta & tb) / len(ta | tb) if (ta and tb and ta | tb) else 0.0
+
+    # Combina: token_set_ratio tem mais peso, fonética corrige falsos negativos
+    return max(tsr, phone_j * 0.9, jaccard)
 
 
 def entity_prefix_match(gid_a: str, gid_b: str) -> bool:
     """
-    True se um gid e prefixo do outro considerando apenas sufixos societarios/conjuncoes.
-
-    Regras:
-      1. Normaliza removendo apenas sufixos legais puros (LTDA, SA, ME, E, DO, DA...)
-         NAO remove descritores de negocio (INDUSTRIA, COMERCIO, TRANSPORTES...)
-      2. O "extra" no nome mais longo so pode conter LEGAL_SUFFIXES ou descritores.
-         Abreviacoes 2-3 chars (ST, AC, SP, PR) sao qualificadores — rejeitam o match.
-      3. Min 6 chars no nome mais curto.
+    True se um gid é prefixo do outro após remoção de sufixos societários puros.
+    v1.6.6 — normalização suave: remove só LTDA/S.A./EIRELI, preserva descritores.
 
     Exemplos:
       "MINAS INDUSTRIA" vs "MINAS INDUSTRIA E COMERCIO" -> True
-      "ESTADO DE MG ICMS" vs "ESTADO DE MG ICMS ST"     -> False  (ST = qualificador)
-      "CRYOBRAS" vs "CRYOBRAS GELO SECO"                -> False  (GELO SECO = outro nome)
-      "AMIL ASSISTENCIA MEDICA" vs "AMIL PLANO DE SAUDE"-> False  (conteudos distintos)
+      "ESTADO DE MG ICMS" vs "ESTADO DE MG ICMS ST"     -> False
+      "CRYOBRAS" vs "CRYOBRAS GELO SECO"                -> False
+      "AMIL ASSISTENCIA MEDICA" vs "AMIL PLANO DE SAUDE" -> False
     """
-    # Sufixos puramente societarios/conjuncoes (OK remover do final)
+    # Sufixos puramente societários (remove do final)
     _CORP = frozenset({
-        "ltda","sa","s/a","me","eireli","epp","ss",
-        "e","do","da","de","dos","das",
+        "ltda","sa","s/a","me","eireli","epp","ss","slu","mei",
+        "e","do","da","de","dos","das","&","cia",
     })
-    # Descritores de negocio (aceitos no "extra", mas nao stripped do nome)
+    # Descritores aceitos no "extra" mas não stripped do nome
     _DESC = frozenset({
-        "comercio","servicos","industria","transportes",
-        "logistica","express","solucoes",
+        "comercio","servicos","servico","industria","industrias",
+        "transportes","transportadora","logistica","express",
+        "solucoes","solucao","empreendimentos","participacoes",
+        "construtora","incorporadora","assessoria","consultoria",
     })
-    _ABBREV = re.compile(r"^[A-Z]{2,3}$")   # ST, AC, SP, PR — qualificadores
+    _ABBREV = re.compile(r"^[A-Z]{2,3}$")
 
-    def _norm(gid: str) -> str:
-        s = normalize(gid)
-        for suf in sorted(_CORP, key=len, reverse=True):
-            if s.endswith(" " + suf.upper()):
-                s = s[:-(len(suf) + 1)].strip()
-        return s
+    def _norm_soft(gid: str) -> str:
+        """Normaliza removendo só sufixos societários do final."""
+        s = normalize(gid).upper()
+        # Remove sufixos do final repetidamente
+        changed = True
+        while changed:
+            changed = False
+            for suf in sorted(_CORP, key=len, reverse=True):
+                tail = " " + suf.upper()
+                if s.endswith(tail):
+                    s = s[:-(len(tail))].strip()
+                    changed = True
+                    break
+        return s.strip()
 
-    na, nb = _norm(gid_a), _norm(gid_b)
-    if not na or not nb:
+    na, nb = _norm_soft(gid_a), _norm_soft(gid_b)
+    if not na or not nb or len(min(na, nb, key=len)) < 6:
         return False
+
     short, long_ = (na, nb) if len(na) <= len(nb) else (nb, na)
-    if len(short) < 6 or not long_.startswith(short):
+    if not long_.startswith(short):
         return False
+
     extra = long_[len(short):].strip()
     if not extra:
         return True
+
     for w in extra.split():
         wl = w.lower()
-        if wl in _CORP or wl in _DESC:
-            continue
-        if _ABBREV.match(w):        # abreviacao significativa -> nao e so sufixo
-            return False
-        return False                # palavra desconhecida -> rejeita
+        if _ABBREV.match(w):
+            return False   # abreviação = qualificador → rejeita
+        if wl not in _CORP and wl not in _DESC:
+            return False   # palavra desconhecida → rejeita
     return True
 
 

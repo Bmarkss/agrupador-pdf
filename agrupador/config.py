@@ -33,7 +33,7 @@ if sys.platform=="win32":
     _sp.Popen.__init__=_pnw
 
 # ── Versao ─────────────────────────────────────────────────────────────────────
-VERSION        = "1.6.5"
+VERSION        = "1.6.6"
 ORDER_MERGE    = ["comprovante","gnre","boleto","nota"]
 MIN_TEXT_CHARS = 80
 NF_KEY_LEN     = 44
